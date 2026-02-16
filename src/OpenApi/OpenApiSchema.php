@@ -27,6 +27,7 @@ class OpenApiSchema extends Schema
             $data = json_decode($data, true);
         }
         $this->jsonFile = $data;
+        $this->specificationVersion = $data['openapi'] ?? '3.0';
     }
 
     #[\Override]

@@ -208,6 +208,17 @@ abstract class Body
      */
     protected function matchTypes(string $name, mixed $schemaArray, mixed $body): ?bool
     {
+        // NEW: Support 'const' keyword (JSON Schema 2020-12)
+        if (isset($schemaArray['const'])) {
+            if ($body !== $schemaArray['const']) {
+                throw new NotMatchedException(
+                    "Value '" . var_export($body, true) . "' in '$name' does not match const value '" . var_export($schemaArray['const'], true) . "'",
+                    $this->structure
+                );
+            }
+            return true;
+        }
+
         if (!isset($schemaArray['type'])) {
             return null;
         }
@@ -255,6 +266,71 @@ abstract class Body
         }
 
         return null;
+    }
+
+    /**
+     * Check if type is an array (for OpenAPI 3.1 nullable support)
+     * Handles type: ["string", "null"] syntax
+     *
+     * @param string $name
+     * @param array $schemaArray
+     * @param mixed $body
+     * @return ?bool
+     * @throws DefinitionNotFoundException
+     * @throws GenericApiException
+     * @throws InvalidDefinitionException
+     * @throws InvalidRequestException
+     * @throws NotMatchedException
+     */
+    protected function matchTypeArray(string $name, array $schemaArray, mixed $body): ?bool
+    {
+        if (!isset($schemaArray['type']) || !is_array($schemaArray['type'])) {
+            return null;
+        }
+
+        // OpenAPI 3.1: type can be an array like ["string", "null"]
+        $types = $schemaArray['type'];
+
+        // Check if null is allowed
+        $isNullable = in_array('null', $types);
+
+        // If body is null
+        if (is_null($body)) {
+            if ($isNullable) {
+                return true;
+            }
+            throw new NotMatchedException(
+                "Value of property '$name' is null, but null is not in allowed types: " . implode(', ', $types),
+                $this->structure
+            );
+        }
+
+        // Try to match against each type (excluding 'null')
+        $nonNullTypes = array_filter($types, fn($t) => $t !== 'null');
+        $matched = false;
+        $lastException = null;
+
+        foreach ($nonNullTypes as $type) {
+            $tempSchema = $schemaArray;
+            $tempSchema['type'] = $type;
+
+            try {
+                // Try to match with this type
+                if ($this->matchTypes($name, $tempSchema, $body)) {
+                    $matched = true;
+                    break;
+                }
+            } catch (NotMatchedException $e) {
+                $lastException = $e;
+                continue;
+            }
+        }
+
+        if (!$matched && $lastException !== null) {
+            throw $lastException;
+        }
+
+        return $matched;
     }
 
     /**
@@ -366,6 +442,12 @@ abstract class Body
      */
     protected function matchSchema(string $name, mixed $schemaArray, mixed $body): ?bool
     {
+        // NEW: Check for array types first (OpenAPI 3.1 nullable support)
+        $arrayTypeResult = $this->matchTypeArray($name, $schemaArray, $body);
+        if ($arrayTypeResult !== null) {
+            return $arrayTypeResult;
+        }
+
         // Match Single Types
         if ($this->matchTypes($name, $schemaArray, $body)) {
             return true;
@@ -381,6 +463,17 @@ abstract class Body
         // Get References and try to match it again
         if (isset($schemaArray['$ref']) && !is_array($schemaArray['$ref'])) {
             $definition = $this->schema->getDefinition($schemaArray['$ref']);
+
+            // NEW: OpenAPI 3.1 - $ref can have sibling keywords
+            if (is_array($schemaArray) && ($this->schema->getSpecificationVersion() === '3.1' || str_starts_with($this->schema->getSpecificationVersion(), '3.1.'))) {
+                // Merge sibling keywords (but definition takes precedence for conflicting keys)
+                $siblingKeywords = array_diff_key($schemaArray, ['$ref' => true]);
+                if (!empty($siblingKeywords)) {
+                    // Merge: sibling keywords first, then definition takes precedence
+                    $definition = array_merge($siblingKeywords, $definition);
+                }
+            }
+
             return $this->matchSchema($schemaArray['$ref'], $definition, $body);
         }
 
