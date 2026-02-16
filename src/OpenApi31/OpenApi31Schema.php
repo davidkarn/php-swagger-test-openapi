@@ -5,111 +5,34 @@ namespace ByJG\ApiTools\OpenApi31;
 use ByJG\ApiTools\Base\Body;
 use ByJG\ApiTools\Base\Schema;
 use ByJG\ApiTools\Exception\DefinitionNotFoundException;
-use ByJG\ApiTools\Exception\InvalidDefinitionException;
 use ByJG\ApiTools\Exception\InvalidRequestException;
-use ByJG\ApiTools\Exception\NotMatchedException;
-use ByJG\Util\Uri;
+use ByJG\ApiTools\OpenApi\OpenApiBase;
 
-class OpenApi31Schema extends Schema
+/**
+ * OpenAPI 3.1.x Schema implementation
+ *
+ * Handles OpenAPI 3.1.0 and above with full JSON Schema 2020-12 compatibility.
+ * Adds support for webhooks, type arrays for nullable, const, if/then/else, and prefixItems.
+ */
+class OpenApi31Schema extends OpenApiBase
 {
-    protected array $serverVariables = [];
-
     /**
-     * Initialize with schema data, which can be a PHP array or encoded as JSON.
-     *
-     * @param array|string $data
+     * @inheritDoc
      */
-    public function __construct(array|string $data)
-    {
-        // when given a string, decode from JSON
-        if (is_string($data)) {
-            $data = json_decode($data, true);
-        }
-        $this->jsonFile = $data;
-        $this->specificationVersion = $data['openapi'] ?? '3.1';
-    }
-
     #[\Override]
-    public function getServerUrl(): string
+    protected function getDefaultVersion(array $data): string
     {
-        if (!isset($this->jsonFile['servers'])) {
-            return '';
-        }
-        $serverUrl = $this->jsonFile['servers'][0]['url'];
-
-        if (isset($this->jsonFile['servers'][0]['variables'])) {
-            foreach ($this->jsonFile['servers'][0]['variables'] as $var => $value) {
-                if (!isset($this->serverVariables[$var])) {
-                    // OpenAPI 3.1: default is optional
-                    $this->serverVariables[$var] = $value['default'] ?? '';
-                }
-            }
-        }
-
-        foreach ($this->serverVariables as $var => $value) {
-            $replaced = preg_replace("/\{$var}/", $value, $serverUrl);
-            $serverUrl = is_string($replaced) ? $replaced : $serverUrl;
-        }
-
-        return $serverUrl;
-    }
-
-    #[\Override]
-    public function getBasePath(): string
-    {
-        $uriServer = new Uri($this->getServerUrl());
-        return $uriServer->getPath();
+        return $data['openapi'] ?? '3.1';
     }
 
     /**
      * @inheritDoc
      */
     #[\Override]
-    protected function validateArguments(string $parameterIn, array $parameters, array $arguments): void
+    protected function getServerVariableDefault(array $variableDefinition): string
     {
-        foreach ($parameters as $parameter) {
-            if (isset($parameter['$ref'])) {
-                $paramParts = explode("/", $parameter['$ref']);
-                if (count($paramParts) != 4 || $paramParts[0] != "#" || $paramParts[1] != self::SWAGGER_COMPONENTS || $paramParts[2] != self::SWAGGER_PARAMETERS) {
-                    throw new InvalidDefinitionException(
-                        "Not get the reference in the expected format #/components/parameters/<NAME>"
-                    );
-                }
-                if (!isset($this->jsonFile[self::SWAGGER_COMPONENTS][self::SWAGGER_PARAMETERS][$paramParts[3]])) {
-                    throw new DefinitionNotFoundException(
-                        "Not find reference #/components/parameters/$paramParts[3]"
-                    );
-                }
-                $parameter = $this->jsonFile[self::SWAGGER_COMPONENTS][self::SWAGGER_PARAMETERS][$paramParts[3]];
-            }
-            if ($parameter['in'] === $parameterIn &&
-                $parameter['schema']['type'] === "integer"
-                && filter_var($arguments[$parameter['name']], FILTER_VALIDATE_INT) === false) {
-                throw new NotMatchedException('Path expected an integer value');
-            }
-        }
-    }
-
-    /**
-     * @param string $name
-     * @return mixed
-     * @throws DefinitionNotFoundException
-     * @throws InvalidDefinitionException
-     */
-    #[\Override]
-    public function getDefinition(string $name): mixed
-    {
-        $nameParts = explode('/', $name);
-
-        if (count($nameParts) < 4 || $nameParts[0] !== '#') {
-            throw new InvalidDefinitionException('Invalid Component');
-        }
-
-        if (!isset($this->jsonFile[$nameParts[1]][$nameParts[2]][$nameParts[3]])) {
-            throw new DefinitionNotFoundException("Component'$name' not found");
-        }
-
-        return $this->jsonFile[$nameParts[1]][$nameParts[2]][$nameParts[3]];
+        // OpenAPI 3.1: default is optional
+        return $variableDefinition['default'] ?? '';
     }
 
     /**
@@ -127,11 +50,6 @@ class OpenApi31Schema extends Schema
         return new OpenApi31RequestBody($this, "$method $path", $structure['requestBody']);
     }
 
-    public function setServerVariable(string $var, string $value): void
-    {
-        $this->serverVariables[$var] = $value;
-    }
-
     /**
      * @inheritDoc
      */
@@ -139,6 +57,31 @@ class OpenApi31Schema extends Schema
     public function getResponseBody(Schema $schema, string $name, array $structure, bool $allowNullValues = false): Body
     {
         return new OpenApi31ResponseBody($schema, $name, $structure, $allowNullValues);
+    }
+
+    // ==================== OpenAPI 3.1 Specific Methods ====================
+
+    /**
+     * Check if schema has webhooks
+     *
+     * @return bool
+     */
+    public function hasWebhooks(): bool
+    {
+        return isset($this->jsonFile['webhooks']) && !empty($this->jsonFile['webhooks']);
+    }
+
+    /**
+     * Get all webhook names
+     *
+     * @return array<string>
+     */
+    public function getWebhookNames(): array
+    {
+        if (!$this->hasWebhooks()) {
+            return [];
+        }
+        return array_keys($this->jsonFile['webhooks']);
     }
 
     /**
@@ -155,29 +98,6 @@ class OpenApi31Schema extends Schema
             throw new DefinitionNotFoundException("Webhook '$webhookName' with method '$method' not found");
         }
         return $this->jsonFile['webhooks'][$webhookName][$method];
-    }
-
-    /**
-     * Check if schema has webhooks
-     *
-     * @return bool
-     */
-    public function hasWebhooks(): bool
-    {
-        return isset($this->jsonFile['webhooks']) && !empty($this->jsonFile['webhooks']);
-    }
-
-    /**
-     * Get all webhook names
-     *
-     * @return array
-     */
-    public function getWebhookNames(): array
-    {
-        if (!$this->hasWebhooks()) {
-            return [];
-        }
-        return array_keys($this->jsonFile['webhooks']);
     }
 
     /**

@@ -1,17 +1,114 @@
 ---
-sidebar_position: 9
+sidebar_position: 10
 ---
 
 # Migration Guide
 
+## OpenAPI 3.1 Support (Added in 6.1)
+
+:::info Non-Breaking Addition
+Version 6.1 adds full support for OpenAPI 3.1 with JSON Schema 2020-12 compatibility. All existing code continues to
+work without changes.
+:::
+
+### What's New in OpenAPI 3.1
+
+- **Automatic Version Detection**: The library now automatically detects and handles OpenAPI 3.1 schemas
+- **Type Array Nullable**: Support for JSON Schema union types like `["string", "null"]`
+- **Webhooks**: Test incoming HTTP requests your API will receive
+- **Modern JSON Schema Keywords**: `const`, `if/then/else`, `prefixItems` for tuples
+- **Enhanced $ref**: References can have sibling keywords
+
+### Migration from OpenAPI 3.0 to 3.1
+
+:::tip No Code Changes Required
+The library automatically detects the version - your existing code works with both 3.0 and 3.1 schemas!
+:::
+
+```php title="Example: Automatic version detection"
+// This works for both 3.0 and 3.1
+$schema = Schema::fromFile('/path/to/openapi.json');
+
+// Check which version you're using
+echo $schema->getSpecificationVersion(); // "3.0" or "3.1"
+```
+
+### Updating Your OpenAPI Schemas
+
+If you want to upgrade your OpenAPI schemas from 3.0 to 3.1:
+
+**1. Update the version number:**
+
+```json title="Update OpenAPI version"
+{
+  "openapi": "3.1.0"
+}
+```
+
+**2. Replace `nullable` with type arrays (optional but recommended):**
+
+**Before (OpenAPI 3.0):**
+
+```json
+{
+  "type": "string",
+  "nullable": true
+}
+```
+
+**After (OpenAPI 3.1):**
+
+```json
+{
+  "type": [
+    "string",
+    "null"
+  ]
+}
+```
+
+**3. Use webhooks for incoming requests (new feature):**
+
+```json title="Example: Webhook definition"
+{
+  "openapi": "3.1.0",
+  "webhooks": {
+    "newUser": {
+      "post": {
+        "requestBody": {},
+        "responses": {}
+      }
+    }
+  }
+}
+```
+
+For detailed information on OpenAPI 3.1 features, see [OpenAPI 3.1 Features Guide](openapi-3.1-features.md).
+
+### Backward Compatibility
+
+:::success 100% Backward Compatible
+- ✅ All OpenAPI 3.0 and Swagger 2.0 schemas work without changes
+- ✅ All existing test code continues to work
+- ✅ No breaking changes
+- ✅ Mixed 3.0 and 3.1 schemas can be used in the same project
+
+:::
+
+---
+
 ## Migrating from Schema::getInstance() (Deprecated in 6.0)
 
+:::warning Deprecated
 The `Schema::getInstance()` method has been deprecated in version 6.0 and will be removed in version 7.0.
+:::
 
 ### Why the Change?
 
+:::info Reason for Deprecation
 The method name `getInstance()` suggests a singleton pattern, but it actually creates new instances each time (factory
 pattern). This is confusing for developers.
+:::
 
 ### New Factory Methods
 
@@ -27,7 +124,7 @@ $schema = Schema::getInstance(file_get_contents('/path/to/spec.json'));
 $schema = Schema::getInstance($arrayData);
 ```
 
-**New Way:**
+**New Way (Recommended):**
 
 ```php
 // From file (recommended - simplest)
@@ -48,24 +145,31 @@ $schema = Schema::fromArray($arrayData, allowNullValues: true);
 
 ### Benefits
 
+:::tip Why Use New Methods
 1. **Clearer intent**: Method name matches what it does (factory, not singleton)
 2. **Better error messages**: Each method validates its specific input type
 3. **More convenient**: `fromFile()` handles file reading for you
 4. **Consistent naming**: Follows common factory method patterns
 
+:::
+
 ---
 
 ## Migrating from assertRequest() (Deprecated in 6.0)
 
+:::warning Deprecated
 The `assertRequest()` method has been renamed to `sendRequest()` for clarity.
+:::
 
 ### Why the Change?
 
+:::info Reason for Deprecation
 The method name `assertRequest()` is misleading because:
-
 - It returns a value (assertions typically don't return)
 - The actual validation happens inside via exceptions
 - Developers expect assertion methods to be void
+
+:::
 
 ### Migration
 
@@ -87,8 +191,10 @@ That's it! The functionality is identical, just the name is clearer.
 
 ## Migrating to expect* Methods (Version 6.0)
 
+:::info Renamed for Clarity
 The assertion-style methods (`assertStatus()`, `assertResponseCode()`, `assertBodyContains()`, etc.) have been renamed
 to expectation-style methods in version 6.0 for better semantic clarity.
+:::
 
 ### Why the Change?
 
@@ -140,21 +246,23 @@ $request
 
 ## Migrating from makeRequest() (Deprecated in 6.0)
 
+:::warning Deprecated
 The `makeRequest()` method with 6 parameters has been deprecated in version 6.0 and will be removed in version 7.0.
+:::
 
 ### Why the Change?
 
-The old `makeRequest()` method had several issues:
+**Old `makeRequest()` Issues:**
 
-- Required passing 6 parameters (even empty ones) making it verbose and error-prone
-- Parameters had to be in a specific order
-- Not easily extensible for new features
+- Required passing 6 parameters (even empty ones)
+- Parameters in specific order
+- Not easily extensible
 - Less readable code
 
-The new fluent interface with `ApiRequester` provides:
+**New `ApiRequester` Benefits:**
 
-- More readable and self-documenting code
-- Only specify the parameters you need
+- More readable and self-documenting
+- Only specify parameters you need
 - Easy to extend with new features
 - Better IDE autocomplete support
 
@@ -187,7 +295,7 @@ public function testGetPet()
     $request
         ->withMethod('GET')
         ->withPath('/pet/1');
-    
+
     $this->sendRequest($request);
 }
 ```
@@ -221,7 +329,7 @@ public function testCreatePet()
         ->withPath('/pet')
         ->withRequestBody(['name' => 'Fluffy', 'status' => 'available'])
         ->expectStatus(201);
-    
+
     $this->sendRequest($request);
 }
 ```
@@ -254,7 +362,7 @@ public function testFindPets()
         ->withMethod('GET')
         ->withPath('/pet/findByStatus')
         ->withQuery(['status' => 'available']);
-    
+
     $this->sendRequest($request);
 }
 ```
@@ -287,7 +395,7 @@ public function testAuthenticatedRequest()
         ->withMethod('GET')
         ->withPath('/pet/1')
         ->withRequestHeader(['Authorization' => 'Bearer token123']);
-    
+
     $this->sendRequest($request);
 }
 ```
@@ -322,8 +430,8 @@ public function testComplexRequest()
         ->withQuery(['detailed' => 'true'])
         ->withRequestBody(['name' => 'Updated Name'])
         ->withRequestHeader(['Authorization' => 'Bearer token123'])
-        ->assertResponseCode(200);
-    
+        ->expectStatus(200);
+
     $response = $this->sendRequest($request);
 }
 ```
@@ -332,25 +440,29 @@ public function testComplexRequest()
 
 #### 1. Better Assertions
 
+:::tip Multiple Expectations
 You can add multiple assertions to your request:
+:::
 
-```php
+```php title="Example: Multiple expectations"
 $request = new \ByJG\ApiTools\ApiRequester();
 $request
     ->withMethod('GET')
     ->withPath('/pet/1')
-    ->assertResponseCode(200)
-    ->assertHeaderContains('Content-Type', 'application/json')
-    ->assertBodyContains('Fluffy');
+    ->expectStatus(200)
+    ->expectHeaderContains('Content-Type', 'application/json')
+    ->expectBodyContains('Fluffy');
 
 $this->sendRequest($request);
 ```
 
 #### 2. Reusable Request Builders
 
+:::tip Helper Methods
 You can create helper methods that return configured requesters:
+:::
 
-```php
+```php title="Example: Reusable authenticated request"
 protected function createAuthenticatedRequest(string $method, string $path): \ByJG\ApiTools\ApiRequester
 {
     $request = new \ByJG\ApiTools\ApiRequester();
@@ -369,9 +481,11 @@ public function testWithHelper()
 
 #### 3. Response Inspection
 
+:::tip Response Analysis
 Both methods return the response, allowing you to inspect it further:
+:::
 
-```php
+```php title="Example: Inspecting response data"
 $request = new \ByJG\ApiTools\ApiRequester();
 $request
     ->withMethod('GET')
@@ -386,16 +500,22 @@ $this->assertEquals('Fluffy', $body['name']);
 
 ### Timeline
 
+:::caution Deprecation Timeline
 - **Version 6.0**:
     - `Schema::getInstance()` deprecated (use `fromJson()`, `fromArray()`, or `fromFile()`)
     - `assertRequest()` deprecated (use `sendRequest()`)
     - `makeRequest()` deprecated (use `ApiRequester` fluent interface)
 - **Version 7.0**: All deprecated methods will be removed
 
+:::
+
 ### Need Help?
 
-If you encounter issues during migration, please:
+:::info Getting Support
+If you encounter issues during migration:
 
 1. Check the [Troubleshooting Guide](troubleshooting.md)
 2. Review the [API Reference](functional-tests.md)
 3. Open an issue on [GitHub](https://github.com/byjg/php-swagger-test/issues)
+
+:::

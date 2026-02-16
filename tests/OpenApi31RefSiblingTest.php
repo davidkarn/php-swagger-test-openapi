@@ -1,6 +1,6 @@
 <?php
 
-namespace ByJG;
+namespace Tests;
 
 use ByJG\ApiTools\Base\Schema;
 use PHPUnit\Framework\TestCase;
