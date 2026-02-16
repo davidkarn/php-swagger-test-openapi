@@ -191,6 +191,45 @@ abstract class Body
             return null;
         }
 
+        // NEW: Handle prefixItems (JSON Schema 2020-12 tuple validation)
+        if (isset($schemaArray['prefixItems'])) {
+            $bodyArray = (array)$body;
+
+            // Validate each item against its corresponding schema
+            foreach ($schemaArray['prefixItems'] as $index => $itemSchema) {
+                if (!isset($bodyArray[$index])) {
+                    // Check minItems if needed
+                    if (isset($schemaArray['minItems']) && $index < $schemaArray['minItems']) {
+                        throw new NotMatchedException(
+                            "Array '$name' requires at least " . $schemaArray['minItems'] . " items",
+                            $this->structure
+                        );
+                    }
+                    break;
+                }
+                $this->matchSchema($name . "[$index]", $itemSchema, $bodyArray[$index]);
+            }
+
+            // Check maxItems
+            if (isset($schemaArray['maxItems']) && count($bodyArray) > $schemaArray['maxItems']) {
+                throw new NotMatchedException(
+                    "Array '$name' has more than " . $schemaArray['maxItems'] . " items",
+                    $this->structure
+                );
+            }
+
+            // Check minItems
+            if (isset($schemaArray['minItems']) && count($bodyArray) < $schemaArray['minItems']) {
+                throw new NotMatchedException(
+                    "Array '$name' requires at least " . $schemaArray['minItems'] . " items",
+                    $this->structure
+                );
+            }
+
+            return true;
+        }
+
+        // Original items handling for non-tuple arrays
         foreach ((array)$body as $item) {
             if (!isset($schemaArray['items'])) {  // If there is no type , there is no test.
                 continue;
@@ -215,6 +254,18 @@ abstract class Body
                     "Value '" . var_export($body, true) . "' in '$name' does not match const value '" . var_export($schemaArray['const'], true) . "'",
                     $this->structure
                 );
+            }
+            return true;
+        }
+
+        // NEW: Support 'pattern' keyword without type (JSON Schema allows this)
+        if (isset($schemaArray['pattern']) && !isset($schemaArray['type'])) {
+            if (!is_string($body)) {
+                throw new NotMatchedException("Value '" . var_export($body, true) . "' in '$name' must be a string to match pattern. ", $this->structure);
+            }
+            $pattern = '/' . rtrim(ltrim($schemaArray['pattern'], '/'), '/') . '/';
+            if (!preg_match($pattern, $body)) {
+                throw new NotMatchedException("Value '$body' in '$name' not matched in pattern. ", $this->structure);
             }
             return true;
         }
@@ -263,6 +314,66 @@ abstract class Body
             if (!is_null($result)) {
                 return $result;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle conditional schemas (if/then/else) - JSON Schema 2020-12
+     *
+     * @param string $name
+     * @param array $schemaArray
+     * @param mixed $body
+     * @return ?bool
+     * @throws DefinitionNotFoundException
+     * @throws GenericApiException
+     * @throws InvalidDefinitionException
+     * @throws InvalidRequestException
+     * @throws NotMatchedException
+     */
+    protected function matchConditional(string $name, array $schemaArray, mixed $body): ?bool
+    {
+        if (!isset($schemaArray['if'])) {
+            return null;
+        }
+
+        // Test if condition - for "if", we need to allow additional properties
+        // because we're only testing if certain properties match, not the whole schema
+        $ifMatches = false;
+        try {
+            $ifSchema = $schemaArray['if'];
+            // Make sure additional properties are allowed for the "if" test
+            if (isset($ifSchema['properties']) && !isset($ifSchema['additionalProperties'])) {
+                $ifSchema['additionalProperties'] = true;
+            }
+            $ifMatches = $this->matchSchema($name . '[if]', $ifSchema, $body) ?? false;
+        } catch (NotMatchedException $e) {
+            // If doesn't match, that's okay
+            $ifMatches = false;
+        }
+
+        // Apply then or else - these add constraints ON TOP of base schema
+        if ($ifMatches && isset($schemaArray['then'])) {
+            // For "then", also allow additional properties since we're adding constraints
+            $thenSchema = $schemaArray['then'];
+            if (isset($thenSchema['properties']) && !isset($thenSchema['additionalProperties'])) {
+                $thenSchema['additionalProperties'] = true;
+            }
+            // Validate against the then branch (this adds constraints)
+            $this->matchSchema($name . '[then]', $thenSchema, $body);
+            // Return true to indicate we processed conditional (but base validation continues)
+            return true;
+        } elseif (!$ifMatches && isset($schemaArray['else'])) {
+            // For "else", also allow additional properties
+            $elseSchema = $schemaArray['else'];
+            if (isset($elseSchema['properties']) && !isset($elseSchema['additionalProperties'])) {
+                $elseSchema['additionalProperties'] = true;
+            }
+            // Validate against the else branch (this adds constraints)
+            $this->matchSchema($name . '[else]', $elseSchema, $body);
+            // Return true to indicate we processed conditional (but base validation continues)
+            return true;
         }
 
         return null;
@@ -351,7 +462,8 @@ abstract class Body
 //        }
 
         if (!isset($schemaArray[self::SWAGGER_PROPERTIES])) {
-            if (in_array($schemaArray["type"] ?? '', [self::SWAGGER_OBJECT, self::SWAGGER_ARRAY])) {
+            // If type is object/array OR if there's a required constraint, treat as object
+            if (in_array($schemaArray["type"] ?? '', [self::SWAGGER_OBJECT, self::SWAGGER_ARRAY]) || isset($schemaArray[self::SWAGGER_REQUIRED])) {
                 $schemaArray[self::SWAGGER_PROPERTIES] = [];
             } else {
                 return null;
@@ -377,6 +489,7 @@ abstract class Body
         if (!isset($schemaArray[self::SWAGGER_REQUIRED])) {
             $schemaArray[self::SWAGGER_REQUIRED] = [];
         }
+
         foreach ($schemaArray[self::SWAGGER_PROPERTIES] as $prop => $def) {
             $required = array_search($prop, $schemaArray[self::SWAGGER_REQUIRED]);
 
@@ -394,6 +507,16 @@ abstract class Body
                 unset($schemaArray[self::SWAGGER_REQUIRED][$required]);
             }
             unset($body[$prop]);
+        }
+
+        // NEW: If there are required fields but no properties were defined (e.g., in conditional then/else),
+        // check if the required fields exist in the body without validating them
+        if (empty($schemaArray[self::SWAGGER_PROPERTIES]) && !empty($schemaArray[self::SWAGGER_REQUIRED])) {
+            foreach ($schemaArray[self::SWAGGER_REQUIRED] as $index => $reqProp) {
+                if (array_key_exists($reqProp, $body)) {
+                    unset($schemaArray[self::SWAGGER_REQUIRED][$index]);
+                }
+            }
         }
 
         if (count($schemaArray[self::SWAGGER_REQUIRED]) > 0) {
@@ -477,8 +600,16 @@ abstract class Body
             return $this->matchSchema($schemaArray['$ref'], $definition, $body);
         }
 
+        // NEW: Handle conditional schemas (if/then/else) BEFORE object properties
+        // This ensures conditional constraints are applied
+        $conditionalResult = $this->matchConditional($name, $schemaArray, $body);
+
         // Match object properties
-        if ($this->matchObjectProperties($name, $schemaArray, $body)) {
+        $objectResult = $this->matchObjectProperties($name, $schemaArray, $body);
+
+        // If we processed a conditional OR matched object properties, continue
+        // Both must pass if both are present
+        if ($conditionalResult !== null || $objectResult) {
             return true;
         }
 
@@ -523,6 +654,12 @@ abstract class Body
 
         // Match any object
         if (count($schemaArray) === 1 && isset($schemaArray['type']) && $schemaArray['type'] === self::SWAGGER_OBJECT) {
+            return true;
+        }
+
+        // NEW: Handle schemas with only "required" (used in conditional then/else)
+        if (isset($schemaArray['required']) && count(array_diff(array_keys($schemaArray), ['required', 'additionalProperties'])) === 0) {
+            // This is handled by matchObjectProperties, just return true
             return true;
         }
 

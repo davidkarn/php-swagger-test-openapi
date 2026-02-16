@@ -1,6 +1,6 @@
 <?php
 
-namespace ByJG\ApiTools;
+namespace ByJG;
 
 use ByJG\ApiTools\Base\Schema;
 use ByJG\ApiTools\Exception\NotMatchedException;
