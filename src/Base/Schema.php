@@ -9,6 +9,7 @@ use ByJG\ApiTools\Exception\InvalidRequestException;
 use ByJG\ApiTools\Exception\NotMatchedException;
 use ByJG\ApiTools\Exception\PathNotFoundException;
 use ByJG\ApiTools\OpenApi\OpenApiSchema;
+use ByJG\ApiTools\OpenApi31\OpenApi31Schema;
 use ByJG\ApiTools\Swagger\SwaggerSchema;
 use ByJG\Util\Uri;
 use InvalidArgumentException;
@@ -37,10 +38,10 @@ abstract class Schema
      *
      * @param string $jsonString JSON-encoded OpenAPI/Swagger specification
      * @param bool $allowNullValues Whether to allow null values (Swagger 2.0 only)
-     * @return SwaggerSchema|OpenApiSchema
+     * @return SwaggerSchema|OpenApiSchema|OpenApi31Schema
      * @throws InvalidArgumentException
      */
-    public static function fromJson(string $jsonString, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema
+    public static function fromJson(string $jsonString, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema|OpenApi31Schema
     {
         $data = json_decode($jsonString, true);
         if ($data === null) {
@@ -54,10 +55,10 @@ abstract class Schema
      *
      * @param string $filePath Path to JSON file containing OpenAPI/Swagger specification
      * @param bool $allowNullValues Whether to allow null values (Swagger 2.0 only)
-     * @return SwaggerSchema|OpenApiSchema
+     * @return SwaggerSchema|OpenApiSchema|OpenApi31Schema
      * @throws InvalidArgumentException
      */
-    public static function fromFile(string $filePath, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema
+    public static function fromFile(string $filePath, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema|OpenApi31Schema
     {
         if (!file_exists($filePath)) {
             throw new InvalidArgumentException("File not found: $filePath");
@@ -74,16 +75,22 @@ abstract class Schema
      *
      * @param array $data PHP array containing OpenAPI/Swagger specification
      * @param bool $allowNullValues Whether to allow null values (Swagger 2.0 only)
-     * @return SwaggerSchema|OpenApiSchema
+     * @return SwaggerSchema|OpenApiSchema|OpenApi31Schema
      * @throws InvalidArgumentException
      */
-    public static function fromArray(array $data, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema
+    public static function fromArray(array $data, bool $allowNullValues = false): SwaggerSchema|OpenApiSchema|OpenApi31Schema
     {
         // check which type of schema we have and dispatch to derived class constructor
         if (isset($data['swagger'])) {
             return new SwaggerSchema($data, $allowNullValues);
         }
         if (isset($data['openapi'])) {
+            $version = $data['openapi'];
+            // Check if it's 3.1.x or higher
+            if (version_compare($version, '3.1.0', '>=')) {
+                return new OpenApi31Schema($data);
+            }
+            // Default to 3.0.x
             return new OpenApiSchema($data);
         }
 
@@ -98,10 +105,10 @@ abstract class Schema
      *
      * @param array|string $data
      * @param bool $extraArgs
-     * @return SwaggerSchema|OpenApiSchema
+     * @return SwaggerSchema|OpenApiSchema|OpenApi31Schema
      * @deprecated Since version 6.0, use fromJson(), fromArray(), or fromFile() instead. Will be removed in version 7.0
      */
-    public static function getInstance(array|string $data, bool $extraArgs = false): SwaggerSchema|OpenApiSchema
+    public static function getInstance(array|string $data, bool $extraArgs = false): SwaggerSchema|OpenApiSchema|OpenApi31Schema
     {
         // when given a string, decode from JSON
         if (is_string($data)) {
