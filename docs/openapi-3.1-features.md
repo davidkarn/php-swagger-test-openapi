@@ -82,6 +82,71 @@ You can have multiple types including null:
 }
 ```
 
+### Nullable Objects with Required Fields
+
+OpenAPI 3.1 supports nullable objects that have required fields and nested properties using `$ref`:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "manager": {
+      "type": ["object", "null"],
+      "required": ["phone"],
+      "properties": {
+        "email": {
+          "$ref": "#/components/schemas/emailProperty"
+        },
+        "phone": {
+          "$ref": "#/components/schemas/phoneNumberProperty"
+        },
+        "firstName": {
+          "$ref": "#/components/schemas/firstNameProperty"
+        }
+      }
+    }
+  },
+  "required": ["name"]
+}
+```
+
+When validating nullable objects with required fields:
+
+```php
+// Valid: manager is null
+$requestBody->match([
+    'name' => 'ACME Corp',
+    'manager' => null
+]);
+
+// Valid: manager is omitted (not required)
+$requestBody->match([
+    'name' => 'ACME Corp'
+]);
+
+// Valid: manager has required phone field
+$requestBody->match([
+    'name' => 'ACME Corp',
+    'manager' => [
+        'phone' => '+1234567890'
+    ]
+]);
+
+// Invalid: manager is present but missing required phone
+$requestBody->match([
+    'name' => 'ACME Corp',
+    'manager' => [
+        'email' => 'test@example.com'
+    ]
+]); // Throws NotMatchedException
+```
+
+This feature is particularly useful when modeling optional complex objects that, when present, must satisfy specific
+requirements.
+
 ## Webhooks
 
 Webhooks allow you to describe incoming HTTP requests that your API will receive.
@@ -384,6 +449,7 @@ See the `/tests/example/` directory for complete working examples:
 
 - `openapi31.json` - Basic 3.1 schema
 - `openapi31-nullable.json` - Nullable type examples
+- `openapi31-nested-ref-required.json` - Nullable objects with required fields and nested $ref
 - `openapi31-webhooks.json` - Webhook definitions
 - `openapi31-conditional.json` - Conditional schemas
 - `openapi31-tuples.json` - Tuple validation

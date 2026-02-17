@@ -8,6 +8,7 @@ use ByJG\ApiTools\Exception\InvalidDefinitionException;
 use ByJG\ApiTools\Exception\InvalidRequestException;
 use ByJG\ApiTools\Exception\NotMatchedException;
 use ByJG\ApiTools\Exception\RequiredArgumentNotFound;
+use SimpleXMLElement;
 
 abstract class Body
 {
@@ -427,7 +428,14 @@ abstract class Body
 
             try {
                 // Try to match with this type
-                if ($this->matchTypes($name, $tempSchema, $body)) {
+                $typeMatched = $this->matchTypes($name, $tempSchema, $body);
+
+                // For object types, matchTypes returns null, so we need to also check object properties
+                if ($typeMatched === null && $type === self::SWAGGER_OBJECT) {
+                    $typeMatched = $this->matchObjectProperties($name, $tempSchema, $body);
+                }
+
+                if ($typeMatched) {
                     $matched = true;
                     break;
                 }
@@ -474,7 +482,7 @@ abstract class Body
             $schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES] = true;
         }
 
-        if ($body instanceof \SimpleXMLElement) {
+        if ($body instanceof SimpleXMLElement) {
             $encoded = json_encode($body);
             $body = json_decode($encoded !== false ? $encoded : '{}', true);
         }

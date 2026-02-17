@@ -2,57 +2,15 @@
 
 namespace ByJG\ApiTools\OpenApi31;
 
-use ByJG\ApiTools\Base\Body;
-use ByJG\ApiTools\Exception\NotMatchedException;
+use ByJG\ApiTools\OpenApi\OpenApiResponseBody;
 
-class OpenApi31ResponseBody extends Body
+/**
+ * OpenAPI 3.1 Response Body validator
+ *
+ * Currently inherits all behavior from OpenAPI 3.0 ResponseBody.
+ * This class exists to maintain separate namespaces and allow for
+ * future OpenAPI 3.1-specific customizations if needed.
+ */
+class OpenApi31ResponseBody extends OpenApiResponseBody
 {
-    /**
-     * @inheritDoc
-     */
-    #[\Override]
-    public function match(mixed $body, ?string $contentType = null): bool
-    {
-        if (empty($this->structure['content']) && !isset($this->structure['$ref'])) {
-            if (!empty($body)) {
-                throw new NotMatchedException("Expected empty body for " . $this->name);
-            }
-            return true;
-        } elseif (!empty($this->structure['content']) && empty($body)) {
-            throw new NotMatchedException("Body is expected for " . $this->name);
-        }
-
-        if (!isset($this->structure['content']) && isset($this->structure['$ref'])) {
-            $definition = $this->schema->getDefinition($this->structure['$ref']);
-            return $this->matchSchema($this->name, $definition, $body) ?? false;
-        }
-
-        if (empty($contentType)) {
-            if ($body instanceof \SimpleXMLElement) {
-                if (isset($this->structure['content']["application/xml"])) {
-                    $contentType = "application/xml";
-                    $encoded = json_encode($body);
-                    $body = json_decode($encoded !== false ? $encoded : '{}', true);
-                } elseif (isset($this->structure['content']["text/xml"])) {
-                    $contentType = "text/xml";
-                    $encoded = json_encode($body);
-                    $body = json_decode($encoded !== false ? $encoded : '{}', true);
-                }
-            } elseif (is_array($body)) {
-                $contentType = "application/json";
-            } elseif (is_string($body) || is_numeric($body)) {
-                $contentType = "text/plain";
-            }
-        }
-
-        if (empty($contentType)) {
-            throw new NotMatchedException("Could not find body content type for " . $this->name);
-        }
-
-        if (!isset($this->structure['content'][$contentType])) {
-            throw new NotMatchedException("Content type not found for " . $this->name);
-        }
-
-        return $this->matchSchema($this->name, $this->structure['content'][$contentType]['schema'], $body) ?? false;
-    }
 }

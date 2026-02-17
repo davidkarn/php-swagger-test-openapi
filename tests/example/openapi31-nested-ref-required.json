@@ -1,0 +1,94 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI 3.1 Nested Ref with Required Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/organization": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "manager": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "description": "Organization Profile Manager",
+                    "required": [
+                      "phone"
+                    ],
+                    "properties": {
+                      "email": {
+                        "$ref": "#/components/schemas/emailProperty"
+                      },
+                      "phone": {
+                        "$ref": "#/components/schemas/phoneNumberProperty"
+                      },
+                      "lastName": {
+                        "$ref": "#/components/schemas/lastNameProperty"
+                      },
+                      "firstName": {
+                        "$ref": "#/components/schemas/firstNameProperty"
+                      },
+                      "middleName": {
+                        "$ref": "#/components/schemas/middleNameProperty"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Organization created"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "emailProperty": {
+        "type": "string",
+        "format": "email",
+        "description": "Email address"
+      },
+      "phoneNumberProperty": {
+        "type": "string",
+        "pattern": "^\\+?[1-9]\\d{1,14}$",
+        "description": "Phone number in E.164 format"
+      },
+      "firstNameProperty": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "description": "First name"
+      },
+      "middleNameProperty": {
+        "type": "string",
+        "maxLength": 50,
+        "description": "Middle name"
+      },
+      "lastNameProperty": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "description": "Last name"
+      }
+    }
+  }
+}
