@@ -240,33 +240,6 @@ abstract class Body
         return true;
     }
 
-    /**
-     * @param string $name
-     * @param mixed $schemaArray
-     * @param mixed $body
-     * @param mixed $type
-     *
-     * @return bool|null
-     * @throws DefinitionNotFoundException
-     * @throws GenericApiException
-     * @throws InvalidDefinitionException
-     * @throws InvalidRequestException
-     * @throws NotMatchedException
-     */
-    protected function matchObject(string $name, mixed $schemaArray, mixed $body, mixed $type): ?bool
-    {
-        if ($type !== self::SWAGGER_OBJECT) {
-            return null;
-        }
-
-        $objectResult = $this->matchObjectProperties($name, $schemaArray, $body);
-
-        if (!$objectResult) {
-            return null;
-        }
-
-        return true;
-    }
 
     /**
      * @param string $name
@@ -307,11 +280,6 @@ abstract class Body
         $nullable = isset($schemaArray['nullable']) ? (bool)$schemaArray['nullable'] : $this->schema->isAllowNullValues();
 
         $validators = [
-            function () use ($name, $schemaArray, $body, $type): bool|null
-            {
-                return $this->matchObject($name, $schemaArray, $body, $type);
-            },
-
             function () use ($name, $body, $type, $nullable): bool|null
             {
                 return $this->matchNull($name, $body, $type, $nullable);
@@ -518,6 +486,18 @@ abstract class Body
         if ($body instanceof SimpleXMLElement) {
             $encoded = json_encode($body);
             $body = json_decode($encoded !== false ? $encoded : '{}', true);
+        }
+
+        // Handle null values when nullable is allowed
+        if (is_null($body)) {
+            $nullable = isset($schemaArray['nullable']) ? (bool)$schemaArray['nullable'] : $this->schema->isAllowNullValues();
+            if ($nullable) {
+                return true;
+            }
+            throw new NotMatchedException(
+                "Value of property '$name' is null, but should be an object",
+                $this->structure
+            );
         }
 
         if (!is_array($body)) {
