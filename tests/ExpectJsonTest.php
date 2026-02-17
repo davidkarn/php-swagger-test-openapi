@@ -3,10 +3,13 @@
 namespace Tests;
 
 use ByJG\ApiTools\Base\Schema;
+use ByJG\ApiTools\Exception\NotMatchedException;
 use ByJG\ApiTools\MockRequester;
 use ByJG\ApiTools\OpenApiValidation;
 use ByJG\WebRequest\Psr7\MemoryStream;
 use ByJG\WebRequest\Psr7\Response;
+use Override;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -16,7 +19,7 @@ class ExpectJsonTest extends TestCase
 {
     use OpenApiValidation;
 
-    #[\Override]
+    #[Override]
     public function setUp(): void
     {
         $schema = Schema::fromFile(__DIR__ . '/rest/openapi.json');
@@ -82,7 +85,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonContainsMissingKey(): void
     {
-        $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
+        $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage("Expected JSON response to contain key 'nonexistent'");
 
         $expectedResponse = Response::getInstance(200)
@@ -109,7 +112,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonContainsWrongValue(): void
     {
-        $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
+        $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage("Expected JSON key 'name' to be equal \"Fluffy\"");
 
         $expectedResponse = Response::getInstance(200)
@@ -210,7 +213,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonPathMissing(): void
     {
-        $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
+        $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage("JSONPath 'category.id' not found in response");
 
         $expectedResponse = Response::getInstance(200)
@@ -235,7 +238,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonPathWrongValue(): void
     {
-        $this->expectException(\PHPUnit\Framework\AssertionFailedError::class);
+        $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage("Expected value at JSONPath 'name' to be equal \"Fluffy\"");
 
         $expectedResponse = Response::getInstance(200)
@@ -267,7 +270,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonContainsInvalidJson(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Body is expected for GET 200 /v2/pet/1");
 
         $expectedResponse = Response::getInstance(200)
@@ -290,7 +293,7 @@ class ExpectJsonTest extends TestCase
      */
     public function testExpectJsonPathInvalidJson(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\InvalidRequestException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("The body 'test' cannot be compared with the expected type #/components/schemas/Category");
 
         $expectedResponse = Response::getInstance(200)

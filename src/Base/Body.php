@@ -500,9 +500,9 @@ abstract class Body
         }
 
         if (!is_array($body)) {
-            throw new InvalidRequestException(
+            throw new NotMatchedException(
                 "The body '" . $body . "' cannot be compared with the expected type " . $name,
-                $body
+                $this->structure
             );
         }
 
@@ -633,6 +633,15 @@ abstract class Body
             return true;
         }
 
+        // Check nullable at the outer schema level for combined schemas (oneOf/allOf/anyOf + nullable: true)
+        // This handles the OpenAPI 3.0 pattern: { "oneOf": [...], "nullable": true }
+        if (is_null($body) && (isset($schemaArray['oneOf']) || isset($schemaArray['allOf']) || isset($schemaArray['anyOf']))) {
+            $nullable = isset($schemaArray['nullable']) ? (bool)$schemaArray['nullable'] : $this->schema->isAllowNullValues();
+            if ($nullable) {
+                return true;
+            }
+        }
+
         if (isset($schemaArray['allOf'])) {
             $allOfSchemas = $schemaArray['allOf'];
             foreach ($allOfSchemas as &$schema) {
@@ -660,6 +669,24 @@ abstract class Body
             }
 
             return $matched;
+        }
+
+        if (isset($schemaArray['anyOf'])) {
+            $catchException = null;
+            foreach ($schemaArray['anyOf'] as $schema) {
+                try {
+                    $result = $this->matchSchema($name, $schema, $body);
+                    if ($result) {
+                        return true;
+                    }
+                } catch (NotMatchedException $exception) {
+                    $catchException = $exception;
+                }
+            }
+            if ($catchException !== null) {
+                throw $catchException;
+            }
+            return false;
         }
 
         /**
@@ -696,6 +723,17 @@ abstract class Body
      */
     protected function matchNull(string $name, mixed $body, mixed $type, bool $nullable): ?bool
     {
+        // OpenAPI 3.1: `type: null` means the only valid value is null
+        if ($type === 'null') {
+            if (is_null($body)) {
+                return true;
+            }
+            throw new NotMatchedException(
+                "Value of property '$name' is not null, but type is 'null'",
+                $this->structure
+            );
+        }
+
         if (!is_null($body)) {
             return null;
         }

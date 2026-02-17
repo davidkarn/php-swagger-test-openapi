@@ -100,7 +100,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testMatchResponseBodyEnumError(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Value 'notfound' in 'status' not matched in ENUM");
         
         $body = [
@@ -128,7 +128,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testMatchResponseBodyWrongNumber(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Expected 'id' to be numeric, but found 'ABC'");
         
         $body = [
@@ -156,7 +156,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testMatchResponseBodyMoreThanExpected(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("The property(ies) 'more' has not defined in '#/components/schemas/Order'");
         
         $body = [
@@ -234,7 +234,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testMatchResponseBodyNotAllowNullValues(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Value of property 'complete' is null, but should be of type 'boolean'");
         
         $body = [
@@ -277,7 +277,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testMatchResponseBodyNotEmpty(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Expected empty body for");
         
         $body = ['suppose'=>'not here'];
@@ -391,7 +391,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
     public function testAdditionalPropertiesInObjectInResponseBodyDoNotMatch(): void
     {
         $this->expectExceptionMessage("Expected 'value2' to be numeric, but found 'string'");
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $body = ['value1' => 1, 'value2' => 'string'];
         $responseParameter = self::openApiSchema5()->getResponseParameters('/tests/additional_properties', 'get', 200);
         $this->assertTrue($responseParameter->match($body));
@@ -445,7 +445,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testIssue9Error(): void
     {
-        $this->expectException(InvalidRequestException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("The body 'fr' cannot be compared with the expected type #/components/schemas/LanguageData_inner");
         $body =
             [
@@ -582,7 +582,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
      */
     public function testResponseWithNoDefault(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\InvalidDefinitionException::class);
+        $this->expectException(InvalidDefinitionException::class);
         $this->expectExceptionMessage("Could not found status code '503'");
         
         $body = [];

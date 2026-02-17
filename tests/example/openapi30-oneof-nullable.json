@@ -1,0 +1,121 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "OpenAPI 3.0 oneOf/anyOf with nullable Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/test-oneof": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test oneOf with nullable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Category"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test-anyof": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test anyOf with nullable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tag": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Tag"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test-allof": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test allOf with nullable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "product": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/Product"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

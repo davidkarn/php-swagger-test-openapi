@@ -1,0 +1,88 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI 3.1 anyOf with null type Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/test-anyof": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test anyOf with null type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "category": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Category"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test-oneof": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test oneOf with null type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tag": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Tag"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

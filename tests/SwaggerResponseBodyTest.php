@@ -74,7 +74,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testMatchResponseBodyEnumError(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Value 'notfound' in 'status' not matched in ENUM");
         
         $body = [
@@ -101,7 +101,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testMatchResponseBodyWrongNumber(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Expected 'id' to be numeric, but found 'ABC'");
         
         $body = [
@@ -128,7 +128,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testMatchResponseBodyMoreThanExpected(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("The property(ies) 'more' has not defined in '#/definitions/Order'");
         
         $body = [
@@ -203,7 +203,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testMatchResponseBodyNotAllowNullValues(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Value of property 'complete' is null, but should be of type 'boolean'");
         
         $body = [
@@ -244,7 +244,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testMatchResponseBodyNotEmpty(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("Expected empty body for");
         
         $body = ['suppose'=>'not here'];
@@ -338,7 +338,7 @@ class SwaggerResponseBodyTest extends SwaggerBodyTestCase
      */
     public function testNotMatchResponseBodyWhenValueWithPatterns(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage(<<<'EOL'
 Value '18' in 'age' is not string.  ->
 {
@@ -391,7 +391,7 @@ EOL
      */
     public function testMatchResponseBodyWhenValueWithStringPatternError(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage(<<<'EOL'
 Value '20100-05-11' in 'date' not matched in pattern.  ->
 {
@@ -424,7 +424,7 @@ EOL
      */
     public function testMatchResponseBodyWhenValueWithNumberPatternError(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage(<<<'EOL'
 Value '9999' in 'age' not matched in pattern.  ->
 {
@@ -492,7 +492,7 @@ EOL
      */
     public function testIssue9Error(): void
     {
-        $this->expectException(InvalidRequestException::class);
+        $this->expectException(NotMatchedException::class);
         $this->expectExceptionMessage("The body 'fr' cannot be compared with the expected type #/definitions/LanguageData_inner");
 
         $body =
@@ -569,7 +569,7 @@ EOL
      */
     public function testResponseWithNoDefault(): void
     {
-        $this->expectException(\ByJG\ApiTools\Exception\InvalidDefinitionException::class);
+        $this->expectException(InvalidDefinitionException::class);
         $this->expectExceptionMessage("Could not found status code '503'");
         
         $body = [];
