@@ -1,0 +1,99 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI 3.1 Webhooks Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/subscribe": {
+      "post": {
+        "summary": "Subscribe to webhooks",
+        "responses": {
+          "201": {
+            "description": "Subscription created"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "newUser": {
+      "post": {
+        "summary": "New user webhook",
+        "description": "Called when a new user is created",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "integer"
+                  },
+                  "event": {
+                    "type": "string",
+                    "const": "user.created"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "userId",
+                  "event"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook received successfully"
+          }
+        }
+      }
+    },
+    "orderUpdated": {
+      "post": {
+        "summary": "Order updated webhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook received"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OrderEvent": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "cancelled"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

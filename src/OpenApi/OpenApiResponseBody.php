@@ -4,6 +4,7 @@ namespace ByJG\ApiTools\OpenApi;
 
 use ByJG\ApiTools\Base\Body;
 use ByJG\ApiTools\Exception\NotMatchedException;
+use SimpleXMLElement;
 
 class OpenApiResponseBody extends Body
 {
@@ -28,7 +29,7 @@ class OpenApiResponseBody extends Body
         }
 
         if (empty($contentType)) {
-            if ($body instanceof \SimpleXMLElement) {
+            if ($body instanceof SimpleXMLElement) {
                 if (isset($this->structure['content']["application/xml"])) {
                     $contentType = "application/xml";
                     $encoded = json_encode($body);

@@ -1,0 +1,118 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tuple Validation Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/coordinates": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number",
+                        "description": "latitude"
+                      },
+                      {
+                        "type": "number",
+                        "description": "longitude"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/person": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "description": "first name"
+                      },
+                      {
+                        "type": "string",
+                        "description": "last name"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/rgb": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "description": "red"
+                      },
+                      {
+                        "type": "integer",
+                        "description": "green"
+                      },
+                      {
+                        "type": "integer",
+                        "description": "blue"
+                      }
+                    ],
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI 3.1 Nullable Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/test-nullable": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Test nullable types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nullableString": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "nullableNumber": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "nullableObject": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "prop": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "regularString": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ class SwaggerSchema extends Schema
         }
         $this->jsonFile = $data;
         $this->allowNullValues = $allowNullValues;
+        $this->specificationVersion = $data['swagger'] ?? '2.0';
     }
 
     public function getHttpSchema(): string

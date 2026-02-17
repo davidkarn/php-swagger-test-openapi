@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 11
 ---
 
 # Troubleshooting Guide
@@ -28,47 +28,51 @@ You're sending a request body for an operation that doesn't define one in the Op
 **Solutions:**
 
 1. **If the endpoint should NOT accept a body** (e.g., GET, DELETE requests):
-   Remove the `withRequestBody()` call from your test:
 
-   ```php
-   // WRONG - GET requests typically don't have bodies
-   $request->withMethod('GET')
-       ->withPath('/pet/1')
-       ->withRequestBody(['data' => 'value']);  // ← Remove this
-   
-   // CORRECT
-   $request->withMethod('GET')
-       ->withPath('/pet/1');
-   ```
+Remove the `withRequestBody()` call from your test:
+
+```php
+// WRONG - GET requests typically don't have bodies
+$request->withMethod('GET')
+    ->withPath('/pet/1')
+    ->withRequestBody(['data' => 'value']);  // ← Remove this
+
+// CORRECT
+$request->withMethod('GET')
+    ->withPath('/pet/1');
+```
 
 2. **If the endpoint SHOULD accept a body** (e.g., POST, PUT, PATCH):
-   Add the request body definition to your OpenAPI specification:
 
-   **For OpenAPI 3.0:**
-   ```yaml
-   paths:
-     /pet:
-       post:
-         requestBody:  # ← Add this
-           required: true
-           content:
-             application/json:
-               schema:
-                 $ref: '#/components/schemas/Pet'
-   ```
+Add the request body definition to your OpenAPI specification:
 
-   **For Swagger 2.0:**
-   ```yaml
-   paths:
-     /pet:
-       post:
-         parameters:
-           - in: body  # ← Add this parameter
-             name: body
-             required: true
-             schema:
-               $ref: '#/definitions/Pet'
-   ```
+**For OpenAPI 3.0:**
+
+```yaml
+paths:
+  /pet:
+    post:
+      requestBody:  # ← Add this
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+```
+
+**For Swagger 2.0:**
+
+```yaml
+paths:
+  /pet:
+    post:
+      parameters:
+        - in: body  # ← Add this parameter
+          name: body
+          required: true
+          schema:
+            $ref: '#/definitions/Pet'
+```
 
 ---
 
@@ -139,47 +143,49 @@ The path you're testing doesn't exist in your OpenAPI/Swagger specification.
 **Common Issues:**
 
 1. **Path parameter mismatch:**
-   ```php
-   // Your spec has: /pet/{petId}
-   // But you're testing: /pet/1
-   
-   // This should work - parameters are replaced automatically
-   $request->withPath('/pet/1');  // ✓ Matches /pet/{petId}
-   ```
+
+```php
+// Your spec has: /pet/{petId}
+// But you're testing: /pet/1
+
+// This should work - parameters are replaced automatically
+$request->withPath('/pet/1');  // ✓ Matches /pet/{petId}
+```
 
 2. **Missing leading slash:**
-   ```php
-   $request->withPath('pet/1');   // ✗ WRONG
-   $request->withPath('/pet/1');  // ✓ CORRECT
-   ```
+
+```php
+$request->withPath('pet/1');   // ✗ WRONG
+$request->withPath('/pet/1');  // ✓ CORRECT
+```
 
 3. **Base path confusion:**
    If your spec defines a base path (Swagger 2.0) or server URL (OpenAPI 3.0),
    don't include it in your test path:
 
-   ```yaml
-   # OpenAPI 3.0
-   servers:
-     - url: https://api.example.com/v1
-   
-   paths:
-     /pet/{petId}:  # ← Use this in your test
-   ```
+```yaml
+# OpenAPI 3.0
+servers:
+  - url: https://api.example.com/v1
 
-   ```php
-   $request->withPath('/pet/1');           // ✓ CORRECT
-   $request->withPath('/v1/pet/1');        // ✗ WRONG
-   ```
+paths:
+  /pet/{petId}:  # ← Use this in your test
+```
+
+```php
+$request->withPath('/pet/1');           // ✓ CORRECT
+$request->withPath('/v1/pet/1');        // ✗ WRONG
+```
 
 4. **Path doesn't exist in spec:**
    Add the path to your OpenAPI specification:
 
-   ```yaml
-   paths:
-     /pet/{petId}:  # ← Add this path
-       get:
-         # ... operation definition
-   ```
+```yaml
+paths:
+  /pet/{petId}:  # ← Add this path
+    get:
+      # ... operation definition
+```
 
 ---
 
@@ -192,19 +198,21 @@ The HTTP method you're testing doesn't exist for that path in your specification
 Either:
 
 1. **Fix your test** to use the correct HTTP method:
-   ```php
-   $request->withMethod('POST');  // Change to match your spec
-   ```
+
+```php
+$request->withMethod('POST');  // Change to match your spec
+```
 
 2. **Add the method** to your OpenAPI specification:
-   ```yaml
-   paths:
-     /pet/{petId}:
-       get:    # ← Already exists
-         # ...
-       put:    # ← Add this method
-         # ... operation definition
-   ```
+
+```yaml
+paths:
+  /pet/{petId}:
+    get:    # ← Already exists
+      # ...
+    put:    # ← Add this method
+      # ... operation definition
+```
 
 ---
 
@@ -216,28 +224,30 @@ The API returned a different status code than expected.
 **Solution:**
 
 1. **Adjust your expectation** if the new status code is correct:
-   ```php
-   $request
-       ->withMethod('POST')
-       ->withPath('/pet')
-       ->expectStatus(201);  // ← Adjust this
-   ```
+
+```php
+$request
+    ->withMethod('POST')
+    ->withPath('/pet')
+    ->expectStatus(201);  // ← Adjust this
+```
 
 2. **Fix your API** if it's returning the wrong status code.
 
 3. **Add the status code** to your OpenAPI specification:
-   ```yaml
-   paths:
-     /pet:
-       post:
-         responses:
-           '201':  # ← Add this response
-             description: Pet created
-             content:
-               application/json:
-                 schema:
-                   $ref: '#/components/schemas/Pet'
-   ```
+
+```yaml
+paths:
+  /pet:
+    post:
+      responses:
+        '201':  # ← Add this response
+          description: Pet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+```
 
 ---
 
@@ -257,20 +267,22 @@ schema:
 **Solution:**
 
 1. **Fix your test data** to match the pattern:
-   ```php
-   $request->withRequestBody([
-       'status' => 'AVAILABLE'  // ✗ WRONG - uppercase
-   ]);
-   
-   $request->withRequestBody([
-       'status' => 'available'  // ✓ CORRECT - lowercase
-   ]);
-   ```
+
+```php
+$request->withRequestBody([
+    'status' => 'AVAILABLE'  // ✗ WRONG - uppercase
+]);
+
+$request->withRequestBody([
+    'status' => 'available'  // ✓ CORRECT - lowercase
+]);
+```
 
 2. **Fix the pattern** in your spec if it's too restrictive:
-   ```yaml
-   pattern: '^[a-zA-Z]+$'  # Allow both upper and lowercase
-   ```
+
+```yaml
+pattern: '^[a-zA-Z]+$'  # Allow both upper and lowercase
+```
 
 ---
 
@@ -282,26 +294,28 @@ Your request/response is missing a required field defined in the specification.
 **Solution:**
 
 1. **Add the missing field** to your test:
-   ```php
-   $request->withRequestBody([
-       'name' => 'Fluffy',
-       'status' => 'available',  // ← Don't forget required fields
-   ]);
-   ```
+
+```php
+$request->withRequestBody([
+    'name' => 'Fluffy',
+    'status' => 'available',  // ← Don't forget required fields
+]);
+```
 
 2. **Make the field optional** in your spec if it shouldn't be required:
-   ```yaml
-   schema:
-     type: object
-     required:
-       - name
-       # Remove 'status' from required if optional
-     properties:
-       name:
-         type: string
-       status:
-         type: string
-   ```
+
+```yaml
+schema:
+  type: object
+  required:
+    - name
+    # Remove 'status' from required if optional
+  properties:
+    name:
+      type: string
+    status:
+      type: string
+```
 
 ---
 
@@ -314,33 +328,36 @@ is set to `false` (or not set, as false is the default).
 **Solution:**
 
 1. **Remove extra fields** from your test:
-   ```php
-   $request->withRequestBody([
-       'name' => 'Fluffy',
-       'extraField' => 'value',  // ← Remove this if not in spec
-   ]);
-   ```
+
+```php
+$request->withRequestBody([
+    'name' => 'Fluffy',
+    'extraField' => 'value',  // ← Remove this if not in spec
+]);
+```
 
 2. **Add the field** to your OpenAPI specification:
-   ```yaml
-   schema:
-     type: object
-     properties:
-       name:
-         type: string
-       extraField:  # ← Add this
-         type: string
-   ```
+
+```yaml
+schema:
+  type: object
+  properties:
+    name:
+      type: string
+    extraField:  # ← Add this
+      type: string
+```
 
 3. **Allow additional properties** in your spec (not recommended for strict validation):
-   ```yaml
-   schema:
-     type: object
-     additionalProperties: true  # ← Allow any extra properties
-     properties:
-       name:
-         type: string
-   ```
+
+```yaml
+schema:
+  type: object
+  additionalProperties: true  # ← Allow any extra properties
+  properties:
+    name:
+      type: string
+```
 
 ---
 
@@ -351,7 +368,6 @@ is set to `false` (or not set, as false is the default).
 Ensure PHPUnit is configured to show detailed errors in your `phpunit.xml.dist`:
 
 ```xml
-
 <phpunit
         displayDetailsOnTestsThatTriggerErrors="true"
         displayDetailsOnTestsThatTriggerWarnings="true"

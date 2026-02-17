@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 9
 ---
 
 # Exception Handling
@@ -543,17 +543,17 @@ class ApiController
 
 ## Exception Quick Reference
 
-| Exception | When Thrown | HTTP Status Hint |
-|-----------|-------------|------------------|
-| `PathNotFoundException` | Path not in spec | 404 (likely) |
-| `HttpMethodNotFoundException` | Method not allowed for path | 405 (likely) |
-| `DefinitionNotFoundException` | Schema reference not found | 500 (spec error) |
-| `InvalidDefinitionException` | Spec structure invalid | 500 (spec error) |
-| `NotMatchedException` | Data doesn't match schema | 400 (validation) |
-| `RequiredArgumentNotFound` | Missing required field | 400 (validation) |
-| `StatusCodeNotMatchedException` | Wrong status code | N/A |
-| `InvalidRequestException` | Malformed request | 400 (client error) |
-| `GenericApiException` | General API error | Varies |
+| Exception                       | When Thrown                 | HTTP Status Hint   |
+|---------------------------------|-----------------------------|--------------------|
+| `PathNotFoundException`         | Path not in spec            | 404 (likely)       |
+| `HttpMethodNotFoundException`   | Method not allowed for path | 405 (likely)       |
+| `DefinitionNotFoundException`   | Schema reference not found  | 500 (spec error)   |
+| `InvalidDefinitionException`    | Spec structure invalid      | 500 (spec error)   |
+| `NotMatchedException`           | Data doesn't match schema   | 400 (validation)   |
+| `RequiredArgumentNotFound`      | Missing required field      | 400 (validation)   |
+| `StatusCodeNotMatchedException` | Wrong status code           | N/A                |
+| `InvalidRequestException`       | Malformed request           | 400 (client error) |
+| `GenericApiException`           | General API error           | Varies             |
 
 ---
 
