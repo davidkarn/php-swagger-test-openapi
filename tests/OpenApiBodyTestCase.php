@@ -64,6 +64,18 @@ class OpenApiBodyTestCase extends TestCase
     }
 
     /**
+     * @param bool $allowNullValues
+     * @return OpenApiSchema|SwaggerSchema
+     */
+    protected static function openApiSchema6(bool $allowNullValues = false): OpenApiSchema|SwaggerSchema
+    {
+        return Schema::getInstance(
+            self::getOpenApiJsonContent_No6(),
+            $allowNullValues
+        );
+    }
+
+    /**
      * @return false|string
      */
     protected static function getOpenApiJsonContent(): string|false
@@ -93,5 +105,13 @@ class OpenApiBodyTestCase extends TestCase
     protected static function getOpenApiJsonContent_No5(): string|false
     {
         return file_get_contents(__DIR__ . '/example/openapi5.json');
+    }
+
+    /**
+     * @return false|string
+     */
+    protected static function getOpenApiJsonContent_No6(): string|false
+    {
+        return file_get_contents(__DIR__ . '/example/openapi6.json');
     }
 }
