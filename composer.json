@@ -1,5 +1,5 @@
 {
-  "name": "byjg/swagger-test",
+  "name": "davidkarn/php-swagger-test-openapi",
   "description": "A set of tools for testing your REST calls based on the OpenApi specification using PHPUnit. Currently, this library supports the OpenApi specifications 2.0 (formerly swagger) and 3.0.",
   "minimum-stability": "dev",
   "prefer-stable": true,
