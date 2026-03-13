@@ -457,7 +457,15 @@ abstract class Body
     protected function matchNull(string $name, mixed $body, mixed $type, bool $nullable): ?bool
     {
         if (!is_null($body)) {
-            return null;
+            if ($type === 'null') {
+                throw new NotMatchedException(
+                    "Value of property '$name' is not null, but null is expected",
+                    $this->structure
+                );
+            }
+            else {
+                return null;
+            }
         }
 
         if (!$nullable) {
