@@ -78,7 +78,7 @@ abstract class Body
      */
     protected function matchString(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
     {
-        if ($type !== 'string') {
+        if (!$this->typeDefinitionIncludes($type, 'string')) {
             return null;
         }
 
@@ -121,7 +121,7 @@ abstract class Body
      */
     protected function matchFile(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
     {
-        if ($type !== 'file') {
+        if (!$this->typeDefinitionIncludes($type, 'file')) {
             return null;
         }
 
@@ -138,7 +138,9 @@ abstract class Body
      */
     protected function matchNumber(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
     {
-        if ($type !== 'integer' && $type !== 'float' && $type !== 'number') {
+        if (!$this->typeDefinitionIncludes($type, 'integer')
+            && !$this->typeDefinitionIncludes($type, 'float')
+            && !$this->typeDefinitionIncludes($type, 'number')) {
             return null;
         }
 
@@ -162,7 +164,8 @@ abstract class Body
      */
     protected function matchBool(string $name, mixed $body, mixed $type): ?bool
     {
-        if ($type !== 'bool' && $type !== 'boolean') {
+        if (!$this->typeDefinitionIncludes($type, 'bool')
+            && !$this->typeDefinitionIncludes($type, 'boolean')) {
             return null;
         }
 
@@ -187,7 +190,7 @@ abstract class Body
      */
     protected function matchArray(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
     {
-        if ($type !== self::SWAGGER_ARRAY) {
+        if (!$this->typeDefinitionIncludes($type, self::SWAGGER_ARRAY)) {
             return null;
         }
 
@@ -213,7 +216,11 @@ abstract class Body
         }
 
         $type = $schemaArray['type'];
-        $nullable = isset($schemaArray['nullable']) ? (bool)$schemaArray['nullable'] : $this->schema->isAllowNullValues();
+        $nullable = match(true) {
+            isset($schemaArray['nullable'])            => (bool)$schemaArray['nullable'],
+            $this->typeDefinitionIncludes($type, 'null') => true,
+            true                                       => $this->schema->isAllowNullValues()
+        };
 
         $validators = [
             function () use ($name, $body, $type, $nullable): bool|null
@@ -247,7 +254,7 @@ abstract class Body
             },
         ];
 
-        foreach ($validators as $validator) {
+        foreach ($validators as $i => $validator) {
             $result = $validator();
             if (!is_null($result)) {
                 return $result;
@@ -275,7 +282,8 @@ abstract class Body
 //        }
 
         if (!isset($schemaArray[self::SWAGGER_PROPERTIES])) {
-            if (in_array($schemaArray["type"] ?? '', [self::SWAGGER_OBJECT, self::SWAGGER_ARRAY])) {
+            if ($this->typeDefinitionIncludes($schemaArray['type'] ?? '', self::SWAGGER_OBJECT)
+                || $this->typeDefinitionIncludes($schemaArray['type'] ?? '', self::SWAGGER_ARRAY)) {
                 $schemaArray[self::SWAGGER_PROPERTIES] = [];
             } else {
                 return null;
@@ -429,7 +437,9 @@ abstract class Body
         }
 
         // Match any object
-        if (count($schemaArray) === 1 && isset($schemaArray['type']) && $schemaArray['type'] === self::SWAGGER_OBJECT) {
+        if (count($schemaArray) === 1
+            && isset($schemaArray['type'])
+            && $this->typeDefinitionIncludes($schemaArray['type'], self::SWAGGER_OBJECT)) {
             return true;
         }
 
@@ -452,11 +462,29 @@ abstract class Body
 
         if (!$nullable) {
             throw new NotMatchedException(
-                "Value of property '$name' is null, but should be of type '$type'",
+                "Value of property '$name' is null, but should be ".$this->printType($type),
                 $this->structure
             );
         }
 
         return true;
+    }
+
+    protected function printType(mixed $type): string {
+        if (is_array($type)) {
+            return "one of types '".implode("', '", $type)."'";
+        }
+        else if (is_string($type)) {
+            return "of type '".$type."'";
+        }
+        else {
+            return "of <type unknown".strval($type).">";
+        }
+    }
+
+    protected function typeDefinitionIncludes(mixed $typeDef, string $testType): bool {
+        return is_array($typeDef)
+            ? in_array($testType, $typeDef)
+            : $typeDef === $testType;
     }
 }

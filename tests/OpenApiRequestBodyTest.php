@@ -302,4 +302,28 @@ class OpenApiRequestBodyTest extends OpenApiBodyTestCase
         $requestParameter = $this->openApiSchema2()->getRequestParameters('/accounts/create', 'post');
         $requestParameter->match($body);
     }
+
+    
+    /**
+     * @throws DefinitionNotFoundException
+     * @throws GenericApiException
+     * @throws HttpMethodNotFoundException
+     * @throws InvalidDefinitionException
+     * @throws InvalidRequestException
+     * @throws NotMatchedException
+     * @throws PathNotFoundException
+     * @throws RequiredArgumentNotFound
+     */
+    public function testMatchRequestBodyReadNullTypes(): void
+    {
+        $body = [
+            "param1" => "str",
+            "param2" => "str",
+            "param3" => null,
+        ];
+
+        $requestParameter = self::openApiSchema6()->getRequestParameters('/v1/test', 'post');
+        $this->assertTrue($requestParameter->match($body));
+    }
+
 }
