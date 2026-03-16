@@ -11,6 +11,10 @@ use ByJG\ApiTools\Exception\RequiredArgumentNotFound;
 
 abstract class Body
 {
+    const ERROR_NOTMATCHED = 0;
+    const ERROR_GENERIC = 1;
+    const ERROR_INVALIDREQUEST = 2;
+    
     const SWAGGER_OBJECT = "object";
     const SWAGGER_ARRAY = "array";
     const SWAGGER_PROPERTIES = "properties";
@@ -30,7 +34,7 @@ abstract class Body
     /**
      * @var string
      */
-    protected string $name;
+    protected mixed $name;
 
     /**
      * OpenApi 2.0 does not describe null values, so this flag defines,
@@ -44,11 +48,11 @@ abstract class Body
      * Body constructor.
      *
      * @param Schema $schema
-     * @param string $name
+     * @param mixed $name
      * @param array $structure
      * @param bool $allowNullValues
      */
-    public function __construct(Schema $schema, string $name, array $structure, bool $allowNullValues = false)
+    public function __construct(Schema $schema, mixed $name, array $structure, bool $allowNullValues = false)
     {
         $this->schema = $schema;
         $this->name = $name;
@@ -68,301 +72,325 @@ abstract class Body
      */
     abstract public function match(mixed $body): bool;
 
-    /**
-     * @param string $name
-     * @param array $schemaArray
-     * @param mixed $body
-     * @param mixed $type
-     * @return ?bool
-     * @throws NotMatchedException
-     */
-    protected function matchString(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
-    {
-        if (!$this->typeDefinitionIncludes($type, 'string')) {
-            return null;
-        }
-
-        if (isset($schemaArray['enum']) && !in_array($body, $schemaArray['enum'])) {
-            throw new NotMatchedException("Value '$body' in '$name' not matched in ENUM. ", $this->structure);
-        }
-
-        if (isset($schemaArray['pattern'])) {
-            $this->checkPattern($name, $body, $schemaArray['pattern']);
-        }
-
-        if (!is_string($body)) {
-            throw new NotMatchedException("Value '" . var_export($body, true) . "' in '$name' is not string. ", $this->structure);
-        }
-
-        return true;
+    protected function buildFailure(?string $message, array $schema, mixed $body, ?string $type, mixed $forKey, int $errorCode): array {
+        return [
+            'match'   => false,
+            'message' => $message,
+            'type'    => $type,
+            'body'    => $body,
+            'schema'  => $schema,
+            'forKey'  => $forKey,
+            'code'    => $errorCode
+        ];        
     }
 
-    /**
-     * @param numeric $body
-     *@throws NotMatchedException
-     *
-     */
-    private function checkPattern(string $name, mixed $body, string $pattern): void
+    protected function buildSuccess(?array $schema, mixed $body, ?string $type, mixed $forKey) {
+        return [
+            'match'   => true,
+            'type'    => $type,
+            'body'    => $body,
+            'schema'  => $schema,
+            'forKey'  => $forKey
+        ];        
+    }
+        
+    protected function matchString(mixed $name, array $schemaArray, mixed $body, string $type): array
+    {
+        if (isset($schemaArray['enum']) && !in_array($body, $schemaArray['enum'])) {
+            return $this->buildFailure(
+                "Value '$body' in '$name' not matched in ENUM. ", $schemaArray, $body, $type,
+                $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else if (isset($schemaArray['pattern'])
+                 && !$this->checkPattern($name, $body, $schemaArray['pattern'])) {
+            return $this->buildFailure(
+                "Value '$body' in '$name' not matched in pattern. ", $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else if (!is_string($body)) {
+            return $this->buildFailure(
+                "Value '" . var_export($body, true) . "' in '$name' is not string. ",
+                $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else {
+            return $this->buildSuccess($schemaArray, $body, $type, $name);
+        }
+    }
+
+    private function checkPattern(mixed $name, mixed $body, string $pattern): bool
     {
         $pattern = '/' . rtrim(ltrim($pattern, '/'), '/') . '/';
-        $isSuccess = (bool)preg_match($pattern, (string)$body);
-
-        if (!$isSuccess) {
-            throw new NotMatchedException("Value '$body' in '$name' not matched in pattern. ", $this->structure);
-        }
+        return (bool)preg_match($pattern, (string)$body);
     }
 
-    /**
-     * @param string $name
-     * @param array $schemaArray
-     * @param mixed $body
-     * @param mixed $type
-     * @return bool|null
-     */
-    protected function matchFile(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
+    protected function matchFile(mixed $name, array $schemaArray, mixed $body, string $type): array
     {
-        if (!$this->typeDefinitionIncludes($type, 'file')) {
-            return null;
-        }
-
-        return true;
+        return $this->buildSuccess($schemaArray, $body, $type, $name);
     }
 
-    /**
-     * @param string $name
-     * @param array $schemaArray
-     * @param mixed $body
-     * @param mixed $type
-     * @return ?bool
-     * @throws NotMatchedException
-     */
-    protected function matchNumber(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
+    protected function matchNumber(mixed $name, array $schemaArray, mixed $body, string $type): array
     {
-        if (!$this->typeDefinitionIncludes($type, 'integer')
-            && !$this->typeDefinitionIncludes($type, 'float')
-            && !$this->typeDefinitionIncludes($type, 'number')) {
-            return null;
-        }
-
         if (!is_numeric($body)) {
-            throw new NotMatchedException("Expected '$name' to be numeric, but found '$body'. ", $this->structure);
-        }
-
-        if (isset($schemaArray['pattern'])) {
-            $this->checkPattern($name, $body, $schemaArray['pattern']);
-        }
-
-        return true;
-    }
-
-    /**
-     * @param string $name
-     * @param mixed $body
-     * @param mixed $type
-     * @return ?bool
-     * @throws NotMatchedException
-     */
-    protected function matchBool(string $name, mixed $body, mixed $type): ?bool
-    {
-        if (!$this->typeDefinitionIncludes($type, 'bool')
-            && !$this->typeDefinitionIncludes($type, 'boolean')) {
-            return null;
-        }
-
-        if (!is_bool($body)) {
-            throw new NotMatchedException("Expected '$name' to be boolean, but found '$body'. ", $this->structure);
-        }
-
-        return true;
-    }
-
-    /**
-     * @param string $name
-     * @param array $schemaArray
-     * @param mixed $body
-     * @param mixed $type
-     * @return ?bool
-     * @throws DefinitionNotFoundException
-     * @throws GenericApiException
-     * @throws InvalidDefinitionException
-     * @throws InvalidRequestException
-     * @throws NotMatchedException
-     */
-    protected function matchArray(string $name, array $schemaArray, mixed $body, mixed $type): ?bool
-    {
-        if (!$this->typeDefinitionIncludes($type, self::SWAGGER_ARRAY)) {
-            return null;
-        }
-
-        foreach ((array)$body as $item) {
-            if (!isset($schemaArray['items'])) {  // If there is no type , there is no test.
-                continue;
+            if (is_null($body)) {
+                $body = 'null';
             }
-            $this->matchSchema($name, $schemaArray['items'], $item);
+
+            return $this->buildFailure(
+                "Expected '$name' to be numeric, but found '$body'. ",
+                $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
         }
-        return true;
+        else if (isset($schemaArray['pattern'])
+                 && !$this->checkPattern($name, $body, $schemaArray['pattern'])) {
+            return $this->buildFailure(
+                "Value '$body' in '$name' not matched in pattern. ",
+                $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else {
+            return $this->buildSuccess($schemaArray, $body, $type, $name);
+        }
+    }
+    
+    protected function matchBool(mixed $name, array $schemaArray, mixed $body, string $type): array
+    {
+        if (!is_bool($body)) {
+            if (is_null($body)) {
+                $body = 'null';
+            }
+            
+            return $this->buildFailure(
+                "Expected '$name' to be boolean, but found '$body'. ",
+                $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else {
+            return $this->buildSuccess($schemaArray, $body, $type, $name);
+        }
     }
 
-    /**
-     * @param string $name
-     * @param mixed $schemaArray
-     * @param mixed $body
-     * @return ?bool
-     */
-    protected function matchTypes(string $name, mixed $schemaArray, mixed $body): ?bool
+    protected function matchArray(mixed $name, array $schemaArray, mixed $body, string $type): array
+    {
+        $failureCount = 0;
+        $subItems     = [];
+        $failureCode  = null;
+        foreach ((array)$body as $index => $item) {
+            if (!isset($schemaArray['items'])) {
+                // If there is no type , there is no test.
+
+                $subItems[$index] = $this->buildSuccess(
+                    null, $item, null, $index
+                );
+            }
+            else {
+                $result = $this->matchInnerSchema($index, $schemaArray['items'], $item);
+                
+                if (!$result['match']) {
+                    $failureCount++;
+                    $failureCode = $failureCode ?? $result['code'];
+                }
+
+                $subItems[$index] = $result;
+            }
+        }
+
+        if ($failureCount > 0) {
+            return array_replace(
+                $this->buildFailure(
+                    null, $schemaArray, $body, $type, $name, $failureCode
+                ),
+                ['subItems' => $subItems]
+            );
+        }
+        else {
+            return array_replace(
+                $this->buildSuccess($schemaArray, $body, $type, $name),
+                ['subItems' => $subItems]
+            );
+        }
+    }
+
+    protected function matchTypes(mixed $name, mixed $schemaArray, mixed $body): array
     {
         if (!isset($schemaArray['type'])) {
-            return null;
+            if (isset($schemaArray['items'])) {
+                $schemaArray['type'] = 'array';
+            }
+            else {
+                $schemaArray['type'] = 'object';
+            }
         }
-
+        
         $type = $schemaArray['type'];
         $nullable = match(true) {
             isset($schemaArray['nullable'])            => (bool)$schemaArray['nullable'],
-            $this->typeDefinitionIncludes($type, 'null') => true,
+            $type === 'null'                           => true,
+            is_array($type) && in_array('null', $type) => true,
             true                                       => $this->schema->isAllowNullValues()
         };
 
         $validators = [
-            function () use ($name, $body, $type, $nullable): bool|null
-            {
-                return $this->matchNull($name, $body, $type, $nullable);
-            },
-
-            function () use ($name, $schemaArray, $body, $type): bool|null
-            {
-                return $this->matchString($name, $schemaArray, $body, $type);
-            },
-
-            function () use ($name, $schemaArray, $body, $type): bool|null
-            {
-                return $this->matchNumber($name, $schemaArray, $body, $type);
-            },
-
-            function () use ($name, $body, $type): bool|null
-            {
-                return $this->matchBool($name, $body, $type);
-            },
-
-            function () use ($name, $schemaArray, $body, $type): bool|null
-            {
-                return $this->matchArray($name, $schemaArray, $body, $type);
-            },
-
-            function () use ($name, $schemaArray, $body, $type): bool|null
-            {
-                return $this->matchFile($name, $schemaArray, $body, $type);
-            },
+            self::SWAGGER_ARRAY => 'matchArray',
+            'bool'              => 'matchBool',
+            'boolean'           => 'matchBool',
+            'integer'           => 'matchNumber',
+            'float'             => 'matchNumber',
+            'number'            => 'matchNumber',
+            'file'              => 'matchFile',
+            'string'            => 'matchString',
+            'null'              => 'matchNull',
+            'object'            => 'matchObject'
         ];
 
-        foreach ($validators as $i => $validator) {
-            $result = $validator();
-            if (!is_null($result)) {
-                return $result;
+        $types = is_array($schemaArray['type']) ? $schemaArray['type'] : [$schemaArray['type']];
+        if ($nullable && !in_array('null', $types)) {
+            $types[] = 'null';
+        }
+
+        $failures = [];
+        foreach ($types as $type) {
+            $validator = $validators[$type];
+
+            if ($validator) {
+                $result = call_user_func(
+                    [$this, $validator],
+                    $name, $schemaArray, $body, $type
+                );
+                
+                if ($result['match'] == true) {
+                    return array_replace($result, ['schema' => $schemaArray, 'type' => $type]);
+                }
+                else {
+                    $failures[] = $result;
+                }
+            }
+            else {
+                $failures[] = $this->buildFailure(
+                    "Not all cases are defined. Please open an issue about this.",
+                    $schemaArray, $body, $type, $name, self::ERROR_GENERIC
+                );
             }
         }
 
-        return null;
+        
+        if (count($failures) > 1) {
+            return [
+                'message'        => null,
+                'code'           => $failures[0]['code'],
+                'match'          => false,
+                'schema'         => $schemaArray,
+                'multipleFailed' => true,
+                'failedItems'    => $failures
+            ];
+        }
+        else {
+            return $failures[0];
+        }
     }
 
-    /**
-     * @param string $name
-     * @param array $schemaArray
-     * @param mixed $body
-     * @return bool|null
-     * @throws DefinitionNotFoundException
-     * @throws GenericApiException
-     * @throws InvalidDefinitionException
-     * @throws InvalidRequestException
-     * @throws NotMatchedException
-     */
-    public function matchObjectProperties(string $name, mixed $schemaArray, mixed $body): ?bool
+    protected function matchObject(mixed $name, mixed $schemaArray, mixed $body, string $type): array
     {
-//        if (!in_array($schemaArray["type"] ?? '',  [self::SWAGGER_OBJECT, self::SWAGGER_ARRAY])) {
-//            return null;
-//        }
-
-        if (!isset($schemaArray[self::SWAGGER_PROPERTIES])) {
-            if ($this->typeDefinitionIncludes($schemaArray['type'] ?? '', self::SWAGGER_OBJECT)
-                || $this->typeDefinitionIncludes($schemaArray['type'] ?? '', self::SWAGGER_ARRAY)) {
-                $schemaArray[self::SWAGGER_PROPERTIES] = [];
-            } else {
-                return null;
-            }
-        }
-
-        if (empty($schemaArray[self::SWAGGER_PROPERTIES]) && !isset($schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES])) {
-            $schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES] = true;
-        }
-
         if ($body instanceof \SimpleXMLElement) {
             $encoded = json_encode($body);
             $body = json_decode($encoded !== false ? $encoded : '{}', true);
         }
 
         if (!is_array($body)) {
-            throw new InvalidRequestException(
+            return $this->buildFailure(
                 "The body '" . $body . "' cannot be compared with the expected type " . $name,
-                $body
+                $schemaArray, $body, $type, $name, self::ERROR_INVALIDREQUEST
             );
         }
+        else {
+            $failureCount = 0;
+            $failedItems = [];
+            $subItems = [];
 
-        if (!isset($schemaArray[self::SWAGGER_REQUIRED])) {
-            $schemaArray[self::SWAGGER_REQUIRED] = [];
-        }
-        foreach ($schemaArray[self::SWAGGER_PROPERTIES] as $prop => $def) {
-            $required = array_search($prop, $schemaArray[self::SWAGGER_REQUIRED]);
+            if (
+                empty($schemaArray[self::SWAGGER_PROPERTIES])
+                && !isset($schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES])
+            ) {
+                $schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES] = true;
+            }
+            
+            if (!isset($schemaArray[self::SWAGGER_REQUIRED])) {
+                $schemaArray[self::SWAGGER_REQUIRED] = [];
+            }
 
-            if (!array_key_exists($prop, $body)) {
-                if ($required !== false) {
-                    throw new NotMatchedException("Required property '$prop' in '$name' not found in object");
+            $additionalProps = $schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES] ?? null;
+
+            $schemaArray[self::SWAGGER_REQUIRED] =
+                array_unique($schemaArray[self::SWAGGER_REQUIRED]);
+
+            $props = $schemaArray[self::SWAGGER_PROPERTIES] ?? [];
+            
+            foreach ($body as $key => $value) {
+                $def = match(true) {
+                    isset($props[$key])        => $props[$key],
+                    is_array($additionalProps) => $additionalProps,
+                    true                       => null
+                };
+
+                if ($def === null) {
+                    $subItems[$key] = $this->buildSuccess(
+                        null, $value, null, $key
+                    );
                 }
-                unset($body[$prop]);
-                continue;
+                else {
+                    $result = $this->matchInnerSchema($key, $def, $value, $key);
+                    
+                    if (!$result['match']) {
+                        $failureCount++;
+                        $failedItems[] = $result;
+                    }
+                    
+                    $subItems[$key] = $result;
+                }
             }
 
-            $this->matchSchema($prop, $def, $body[$prop]);
-            unset($schemaArray[self::SWAGGER_PROPERTIES][$prop]);
-            if ($required !== false) {
-                unset($schemaArray[self::SWAGGER_REQUIRED][$required]);
+            if (count($diff = array_diff(
+                $schemaArray[self::SWAGGER_REQUIRED],
+                array_keys($subItems))
+            )) {
+                return $this->buildFailure(
+                    count($diff) === 1
+                        ? "The required property '".array_values($diff[0])."' does not exist in the body."
+                        : "The required properties '".implode("', '", $diff)."' do not exist in the body.",
+                    $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+                );
             }
-            unset($body[$prop]);
-        }
-
-        if (count($schemaArray[self::SWAGGER_REQUIRED]) > 0) {
-            throw new NotMatchedException(
-                "The required property(ies) '"
-                . implode(', ', $schemaArray[self::SWAGGER_REQUIRED])
-                . "' does not exists in the body.",
-                $this->structure
-            );
-        }
-
-        if (count($body) > 0 && !isset($schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES])) {
-            throw new NotMatchedException(
-                "The property(ies) '"
-                . implode(', ', array_keys($body))
-                . "' has not defined in '$name'",
-                $body
-            );
-        }
-
-        $additionalProperties = $schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES] ?? false;
-        $allowAnyProperty = $additionalProperties === true;
-        $def = is_array($additionalProperties) ? ($additionalProperties["type"] ?? '') : '';
-        if ($allowAnyProperty || empty($def)) {
-            return true;
-        }
-
-        foreach ($body as $name => $prop) {
-            if (is_array($additionalProperties)) {
-                $this->matchSchema($name, $additionalProperties, $prop);
+            else if (
+                !isset($schemaArray[self::SWAGGER_ADDITIONAL_PROPERTIES])
+                    && count($diff = array_diff(
+                        array_keys($subItems),
+                        array_keys($schemaArray[self::SWAGGER_PROPERTIES]))) > 0
+            ) {
+                return $this->buildFailure(
+                    count($diff) === 1
+                        ? "The property '".array_values($diff)[0]."' has not been defined in '$name'"
+                        : "The properties '".implode("', '", $diff)."' have not been defined in '$name'",
+                    $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+                );
+            }
+            else if ($failureCount > 0) {
+                return array_replace(
+                    $this->buildFailure(null, $schemaArray, $body, $type, $name, $failedItems[0]['code']),
+                    ['subItems' => $subItems]
+                );
+            }
+            else {
+                return array_replace(
+                    $this->buildSuccess($schemaArray, $body, $type, $name),
+                    ['subItems' => $subItems]
+                );
             }
         }
-        return true;
     }
 
     /**
-     * @param string $name
+     * @param mixed $name
      * @param mixed $schemaArray
      * @param mixed $body
      * @return ?bool
@@ -372,127 +400,152 @@ abstract class Body
      * @throws InvalidRequestException
      * @throws NotMatchedException
      */
-    protected function matchSchema(string $name, mixed $schemaArray, mixed $body): ?bool
+    protected function matchSchema(mixed $name, mixed $schemaArray, mixed $body): ?bool
     {
-        // Match Single Types
-        if ($this->matchTypes($name, $schemaArray, $body)) {
-            return true;
-        }
+        $result = $this->matchInnerSchema($name, $schemaArray, $body);
 
-        if (!isset($schemaArray['$ref']) && isset($schemaArray['content']) && is_array($schemaArray['content'])) {
+        if (!$result['match']) {
+            if ($result['code'] === self::ERROR_NOTMATCHED) {
+                throw new NotMatchedException(
+                    $this->getErrorMessage($result), $this->structure, result: $result
+                );
+            }
+            else if ($result['code'] === self::ERROR_INVALIDREQUEST) {
+                throw new InvalidRequestException(
+                    $this->getErrorMessage($result), $this->structure, result: $result
+                );
+            }
+            else if ($result['code'] === self::ERROR_GENERIC) {
+                throw new GenericApiException(
+                    $this->getErrorMessage($result), $this->structure, result: $result
+                );
+            }
+        }
+        else {
+            return $result['match'];
+        }
+    }
+
+    protected function getErrorMessage(array $result): ?string {
+        if (!$result['match'] && !empty($result['message'])) {
+            return $result['message'];
+        }
+        else {
+            $items = $result['failedItems'] ?? $result['subItems'] ?? $result['failures'] ?? [];
+            
+            foreach ($items as $item) {
+                if ($message = $this->getErrorMessage($item)) {
+                    return $message;
+                }
+            }
+            
+            return null;
+        }
+    }
+    
+    protected function matchInnerSchema(mixed $name, mixed $schemaArray, mixed $body): array {
+        if (!isset($schemaArray['$ref'])
+            && isset($schemaArray['content'])
+            && is_array($schemaArray['content'])
+        ) {
             $contentKey = key($schemaArray['content']);
+
             if ($contentKey !== null && isset($schemaArray['content'][$contentKey]['schema'])) {
                 $schemaArray = $schemaArray['content'][$contentKey]['schema'];
             }
         }
 
-        // Get References and try to match it again
         if (isset($schemaArray['$ref']) && !is_array($schemaArray['$ref'])) {
             $definition = $this->schema->getDefinition($schemaArray['$ref']);
-            return $this->matchSchema($schemaArray['$ref'], $definition, $body);
+            return $this->matchInnerSchema($schemaArray['$ref'], $definition, $body, $name);
         }
+        else if (isset($schemaArray['allOf'])) {
+            $failedItems  = [];
+            $parentSchema = array_diff_key($schemaArray, array_flip(['allOf']));
 
-        // Match object properties
-        if ($this->matchObjectProperties($name, $schemaArray, $body)) {
-            return true;
-        }
-
-        if (isset($schemaArray['allOf'])) {
-            $allOfSchemas = $schemaArray['allOf'];
-            foreach ($allOfSchemas as &$schema) {
-                if (isset($schema['$ref'])) {
-                    $schema = $this->schema->getDefinition($schema['$ref']);
-                }
-            }
-            unset($schema);
-            $mergedSchema = array_merge_recursive(...$allOfSchemas);
-            return $this->matchSchema($name, $mergedSchema, $body);
-        }
-
-        if (isset($schemaArray['oneOf'])) {
-            $matched = false;
-            $catchException = null;
-            foreach ($schemaArray['oneOf'] as $schema) {
-                try {
-                    $matched = $matched || $this->matchSchema($name, $schema, $body);
-                } catch (NotMatchedException $exception) {
-                    $catchException = $exception;
-                }
-            }
-            if ($catchException !== null && $matched === false) {
-                throw $catchException;
-            }
-
-            return $matched;
-        }
-
-        /**
-         * OpenApi 2.0 does not describe ANY object value
-         * But there is hack that makes ANY object possible, described in link below
-         * To make that hack works, we need such condition
-         * @link https://stackoverflow.com/questions/32841298/swagger-2-0-what-schema-to-accept-any-complex-json-value
-         */
-        if ($schemaArray === []) {
-            return true;
-        }
-
-        // Match any object
-        if (count($schemaArray) === 1
-            && isset($schemaArray['type'])
-            && $this->typeDefinitionIncludes($schemaArray['type'], self::SWAGGER_OBJECT)) {
-            return true;
-        }
-
-        throw new GenericApiException("Not all cases are defined. Please open an issue about this. Schema: $name");
-    }
-
-    /**
-     * @param string $name
-     * @param mixed $body
-     * @param mixed $type
-     * @param bool $nullable
-     * @return ?bool
-     * @throws NotMatchedException
-     */
-    protected function matchNull(string $name, mixed $body, mixed $type, bool $nullable): ?bool
-    {
-        if (!is_null($body)) {
-            if ($type === 'null') {
-                throw new NotMatchedException(
-                    "Value of property '$name' is not null, but null is expected",
-                    $this->structure
+            if (isset($parentSchema['type'])) {
+                return $this->matchInnerSchema(
+                    $name, array_merge_recursive($parentSchema, $schemaArray['allOf']), $body, $name
                 );
             }
             else {
-                return null;
+                foreach ($schemaArray['allOf'] as $schema) {
+                    $result = $this->matchInnerSchema(
+                        $name, array_replace($parentSchema, $schema), $body, $name
+                    );
+                    
+                    if (!$result['match']) {
+                        $failedItems[] = $result;
+                    }
+                }
+
+                if (count($failedItems) > 0) {
+                    return array_replace(
+                        $this->buildFailure(
+                            count($failedItems)." failure(s) in allOf schema",
+                            $schemaArray, $body, null, $name, $failedItems[0]['code']
+                        ),
+                        ['failedItems' => $failedItems]
+                    );
+                }
+                else {
+                    return $result;
+                }
             }
         }
+        else if (isset($schemaArray['oneOf'])) {
+            $failedItems  = [];
+            $parentSchema = array_diff_key($schemaArray, array_flip(['oneOf']));
 
-        if (!$nullable) {
-            throw new NotMatchedException(
-                "Value of property '$name' is null, but should be ".$this->printType($type),
-                $this->structure
+            foreach ($schemaArray['oneOf'] as $schema) {
+                $result = $this->matchInnerSchema(
+                    $name, array_replace($parentSchema, $schema), $body
+                );
+
+                if (!$result['match']) {
+                    $failedItems[] = $result;
+                }
+                else {
+                    return $result;
+                }
+            }
+
+            return array_replace(
+                $this->buildFailure(
+                    $failedItems." failure(s) in oneOf schema",
+                    $schemaArray, $body, null, $name, $failedItems[0]['code']
+                ),
+                ['failedItems' => $failedItems]
             );
         }
-
-        return true;
-    }
-
-    protected function printType(mixed $type): string {
-        if (is_array($type)) {
-            return "one of types '".implode("', '", $type)."'";
-        }
-        else if (is_string($type)) {
-            return "of type '".$type."'";
+        else if ($schemaArray === []) {
+            /**
+             * OpenApi 2.0 does not describe ANY object value
+             * But there is hack that makes ANY object possible, described in link below
+             * To make that hack works, we need such condition
+             * @link https://stackoverflow.com/questions/32841298/swagger-2-0-what-schema-to-accept-any-complex-json-value
+             */
+            return $this->buildSuccess($schemaArray, $body, 'object', $name);
         }
         else {
-            return "of <type unknown".strval($type).">";
+            return $this->matchTypes($name, $schemaArray, $body, $name);
         }
     }
 
-    protected function typeDefinitionIncludes(mixed $typeDef, string $testType): bool {
-        return is_array($typeDef)
-            ? in_array($testType, $typeDef)
-            : $typeDef === $testType;
+    protected function matchNull(mixed $name, array $schemaArray, mixed $body, string $type): array
+    {
+        if (!is_null($body)) {
+            if (is_null($body)) {
+                $body = 'null';
+            }
+
+            return $this->buildFailure(
+                "Expected '$name' to be null, but found '$body'. ",
+                $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
+            );
+        }
+        else {
+            return $this->buildSuccess($schemaArray, $body, $type, $name);
+        }
     }
 }
