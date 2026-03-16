@@ -13,8 +13,9 @@ class BaseException extends Exception
     public function __construct(string $message = "", mixed $body = [], int $code = 0, ?Throwable $previous = null, ?array $result=null)
     {
         $this->body = $body;
+        $this->result = $result;
         if (!empty($body)) {
-            $message = $message . " ->\n" . (json_encode($body, JSON_PRETTY_PRINT) ?: 'null') . "\n";
+            $message = $message . " ->\n" . (json_encode($body, JSON_PRETTY_PRINT) ?: 'null') . "\n".($result ? "\n".$this->doPrintFailure($result) : '');
         }
         parent::__construct($message, $code, $previous);
     }
@@ -27,8 +28,14 @@ class BaseException extends Exception
         return $this->body;
     }
 
-    public function printFailure(
-        array $result, bool $hasFailed = false, int $depth = 2, 
+    public function printFailure() {
+        if (isset($this->result)) {
+            echo $this->doPrintFailure($this->result);
+        }
+    }
+
+    protected function doPrintFailure(
+        array $result, int $depth = 2, 
     ): string {
         $indent = 2;
         
@@ -67,7 +74,7 @@ class BaseException extends Exception
             
             foreach ($result['subItems'] as $key => $subItemResult) {
                 $text .= $margin.$strTimes(' ', $depth).var_export($key, true).": \n";
-                $text .= $this->printFailure($subItemResult, $hasFailed, $depth + $indent);
+                $text .= $this->doPrintFailure($subItemResult, $depth + $indent);
             }
         }
         else if ($type === null) {
@@ -95,7 +102,7 @@ class BaseException extends Exception
                 
                 foreach ($result['failedItems'] as $key => $subItemResult) {
                     $text .= $margin.$strTimes(' ', $depth).var_export($key, true).": \n";
-                    $text .= $this->printFailure($subItemResult, $hasFailed, $depth + $indent);
+                    $text .= $this->doPrintFailure($subItemResult, $depth + $indent);
                 }
             }
         }

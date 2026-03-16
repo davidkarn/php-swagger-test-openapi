@@ -50,7 +50,8 @@ class OpenApiResponseBody extends Body
         }
 
         if (!isset($this->structure['content'][$contentType])) {
-            throw new NotMatchedException("Content type not found for " . $this->name);
+            var_dump($contentType, $this->structure);
+            throw new NotMatchedException("Content type ".$contentType." not found for " . $this->name);
         }
 
         return $this->matchSchema($this->name, $this->structure['content'][$contentType]['schema'], $body) ?? false;

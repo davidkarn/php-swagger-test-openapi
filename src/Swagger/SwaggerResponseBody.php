@@ -14,6 +14,7 @@ class SwaggerResponseBody extends Body
     public function match(mixed $body): bool
     {
         if (!isset($this->structure['schema'])) {
+            var_dump($body);
             if (!empty($body)) {
                 throw new NotMatchedException("Expected empty body for " . $this->name);
             }

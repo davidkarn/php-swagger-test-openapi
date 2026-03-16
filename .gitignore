@@ -16,3 +16,4 @@ composer.lock
 /phpunit.report.xml
 .phpunit.result.cache
 *.bak
+*#*
