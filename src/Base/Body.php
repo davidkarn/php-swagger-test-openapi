@@ -463,35 +463,9 @@ abstract class Body
             $failedItems  = [];
             $parentSchema = array_diff_key($schemaArray, array_flip(['allOf']));
 
-            if (isset($parentSchema['type'])) {
-                return $this->matchInnerSchema(
-                    $name, array_merge_recursive($parentSchema, $schemaArray['allOf']), $body, $name
-                );
-            }
-            else {
-                foreach ($schemaArray['allOf'] as $schema) {
-                    $result = $this->matchInnerSchema(
-                        $name, array_replace($parentSchema, $schema), $body, $name
-                    );
-                    
-                    if (!$result['match']) {
-                        $failedItems[] = $result;
-                    }
-                }
-
-                if (count($failedItems) > 0) {
-                    return array_replace(
-                        $this->buildFailure(
-                            count($failedItems)." failure(s) in allOf schema",
-                            $schemaArray, $body, null, $name, $failedItems[0]['code']
-                        ),
-                        ['failedItems' => $failedItems]
-                    );
-                }
-                else {
-                    return $result;
-                }
-            }
+            return $this->matchInnerSchema(
+                $name, array_merge_recursive($parentSchema, $schemaArray['allOf']), $body, $name
+            );
         }
         else if (isset($schemaArray['oneOf'])) {
             $failedItems  = [];
@@ -535,12 +509,8 @@ abstract class Body
     protected function matchNull(mixed $name, array $schemaArray, mixed $body, string $type): array
     {
         if (!is_null($body)) {
-            if (is_null($body)) {
-                $body = 'null';
-            }
-
             return $this->buildFailure(
-                "Expected '$name' to be null, but found '$body'. ",
+                "Expected '$name' to be null, but found ".var_export($body, true),
                 $schemaArray, $body, $type, $name, self::ERROR_NOTMATCHED
             );
         }
