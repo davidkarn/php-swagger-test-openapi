@@ -157,7 +157,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
     public function testMatchResponseBodyMoreThanExpected(): void
     {
         $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
-        $this->expectExceptionMessage("The property(ies) 'more' has not defined in '#/components/schemas/Order'");
+        $this->expectExceptionMessage("The property 'more' has not been defined in '#/components/schemas/Order'");
         
         $body = [
             "id" => "50",
@@ -235,7 +235,7 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
     public function testMatchResponseBodyNotAllowNullValues(): void
     {
         $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
-        $this->expectExceptionMessage("Value of property 'complete' is null, but should be of type 'boolean'");
+        $this->expectExceptionMessage("Expected 'complete' to be boolean, but found 'null'");
         
         $body = [
             "id"       => 10,
@@ -362,6 +362,36 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
         $this->assertTrue($responseParameter->match($body));
     }
 
+    public function testMatchResponseBodyFailsWhenNestedPropertyDoesntMatch(): void
+    {
+        $this->expectException(\ByJG\ApiTools\Exception\NotMatchedException::class);
+        
+        $allowNullValues = true;
+        $body = [
+            "id" => 10,
+            "category" => null,
+            "name" => "Spike",
+            "photoUrls" => [
+                'url1',
+                'url2'
+            ],
+            "tags" => [
+                [
+                    'id' => '10',
+                    'name' => 'cute'
+                ],
+                [
+                    'name' => 33
+                ]
+            ],
+            "status" => 'available'
+        ];
+
+        $responseParameter = self::openApiSchema($allowNullValues)->getResponseParameters('/v2/pet/10', 'get', 200);
+        $this->assertTrue($responseParameter->match($body));
+    }
+
+    
     /**
      * @throws GenericApiException
      * @throws DefinitionNotFoundException
@@ -483,9 +513,9 @@ class OpenApiResponseBodyTest extends OpenApiBodyTestCase
         $responseParameter = $this->openApiSchema2()->getResponseParameters('/v2/textplain', 'get', 200);
         $this->assertTrue($responseParameter->match($body));
 
-//        $body = 1000;
-//        $responseParameter = $this->openApiSchema2()->getResponseParameters('/v2/textplain', 'get', 200);
-//        $this->assertTrue($responseParameter->match($body));
+        //        $body = 1000;
+        //        $responseParameter = $this->openApiSchema2()->getResponseParameters('/v2/textplain', 'get', 200);
+        //        $this->assertTrue($responseParameter->match($body));
 
         $body = [ "test" => "10"];
         $responseParameter = $this->openApiSchema2()->getResponseParameters('/v2/anyvalue', 'get', 200);
