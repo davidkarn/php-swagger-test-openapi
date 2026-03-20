@@ -72,7 +72,7 @@ class BaseException extends Exception
                 $text .= $margin.$strTimes(' ', $depth).' - '.($result['message'] ?? 'error '.$type)."\n";                
             }
             
-            foreach ($result['subItems'] as $key => $subItemResult) {
+            foreach (($result['subItems'] ?? []) as $key => $subItemResult) {
                 $text .= $margin.$strTimes(' ', $depth).var_export($key, true).": \n";
                 $text .= $this->doPrintFailure($subItemResult, $depth + $indent);
             }
